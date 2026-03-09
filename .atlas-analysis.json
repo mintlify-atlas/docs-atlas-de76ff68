@@ -1,0 +1,108 @@
+{
+  "projectType": "infrastructure",
+  "projectName": "th0th",
+  "projectDescription": "Ancient knowledge keeper for modern code - Semantic search with 98% token reduction for AI assistants",
+  "theme": "aspen",
+  "primaryColor": "#22bd7a",
+  "lightColor": "#0f0d51",
+  "darkColor": "#cee1df",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Integration",
+            "pages": [
+              "integration/opencode",
+              "integration/vscode",
+              "integration/docker",
+              "integration/mcp-setup"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/semantic-search",
+              "concepts/compression",
+              "concepts/memory"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/embedding-providers",
+              "configuration/advanced-config"
+            ]
+          },
+          {
+            "group": "Operations",
+            "pages": [
+              "operations/deployment",
+              "operations/monitoring",
+              "operations/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "REST API",
+            "pages": [
+              "api/rest-overview",
+              "api/endpoints"
+            ]
+          },
+          {
+            "group": "MCP Tools",
+            "pages": [
+              "api/mcp-overview",
+              "api/tools-reference"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "api/config-cli"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Semantic code search with 98% token reduction",
+    "Hybrid vector + keyword search with RRF ranking",
+    "Context compression (70-98% reduction)",
+    "Persistent memory across sessions",
+    "Multi-level L1/L2 cache with TTL",
+    "MCP server for AI assistant integration",
+    "REST API with Swagger documentation",
+    "Multiple embedding providers (Ollama, Mistral, OpenAI)"
+  ],
+  "publicApiSurface": [
+    "th0th_index - Index a project directory for semantic search",
+    "th0th_search - Semantic + keyword search with filters",
+    "th0th_remember - Store important information in persistent memory",
+    "th0th_recall - Search stored memories from previous sessions",
+    "th0th_compress - Compress context (keeps structure, removes details)",
+    "th0th_optimized_context - Search + compress in one call",
+    "th0th_analytics - Usage patterns, cache performance, metrics",
+    "POST /api/v1/project/index - Index a project via REST API",
+    "POST /api/v1/search/project - Search indexed projects",
+    "POST /api/v1/memory/store - Store memory entries",
+    "POST /api/v1/context/compress - Compress code context",
+    "th0th-config CLI - Configuration management tool"
+  ]
+}
