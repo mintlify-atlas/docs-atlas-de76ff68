@@ -1,0 +1,619 @@
+---
+title: 'Advanced Configuration'
+description: 'Cache settings, compression strategies, logging, and performance tuning'
+---
+
+th0th provides extensive configuration options for optimizing performance, storage, and behavior. All settings can be configured via the config file or environment variables.
+
+## Configuration File
+
+**Location**: `~/.config/th0th/config.json`
+
+The config file is auto-created on first run with sensible defaults:
+
+```json
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "baseURL": "http://localhost:11434",
+    "dimensions": 768
+  },
+  "compression": {
+    "enabled": true,
+    "strategy": "code_structure",
+    "targetRatio": 0.7
+  },
+  "cache": {
+    "enabled": true,
+    "l1MaxSizeMB": 100,
+    "l2MaxSizeMB": 500,
+    "defaultTTLSeconds": 3600
+  },
+  "dataDir": "~/.rlm",
+  "logging": {
+    "level": "info",
+    "enableMetrics": false
+  }
+}
+```
+
+## CLI Configuration
+
+<CodeGroup>
+```bash Show Config
+# Display current configuration
+npx @th0th-ai/mcp-client --config-show
+
+# Show config file path
+npx @th0th-ai/mcp-client --config-path
+
+# Show config directory
+npx @th0th-ai/mcp-client --config-dir
+```
+
+```bash Initialize
+# Create default config
+npx @th0th-ai/mcp-client --config-init
+
+# Initialize with specific provider
+npx @th0th-ai/mcp-client --config-init --mistral YOUR_KEY
+npx @th0th-ai/mcp-client --config-init --openai YOUR_KEY
+```
+
+```bash Update Values
+# Set specific configuration values
+npx @th0th-ai/mcp-client --config-set embedding.dimensions 1024
+npx @th0th-ai/mcp-client --config-set cache.l1MaxSizeMB 200
+npx @th0th-ai/mcp-client --config-set logging.level debug
+```
+</CodeGroup>
+
+## Cache Configuration
+
+th0th uses a two-level caching system for optimal performance:
+
+### L1 Cache (In-Memory)
+
+Fast memory cache for frequently accessed data.
+
+<ParamField path="cache.enabled" type="boolean" default="true">
+  Enable/disable the entire caching system.
+</ParamField>
+
+<ParamField path="cache.l1MaxSizeMB" type="number" default="100">
+  Maximum L1 cache size in megabytes. Stores most recently used embeddings in memory.
+</ParamField>
+
+<ParamField path="cache.l1TTL" type="number" default="300">
+  L1 cache TTL in seconds (5 minutes). How long items stay in memory cache.
+</ParamField>
+
+### L2 Cache (Disk/SQLite)
+
+Persistent cache that survives restarts.
+
+<ParamField path="cache.l2MaxSizeMB" type="number" default="500">
+  Maximum L2 cache size in megabytes. Stores embeddings on disk.
+</ParamField>
+
+<ParamField path="cache.l2TTL" type="number" default="3600">
+  L2 cache TTL in seconds (1 hour). How long items stay in disk cache.
+</ParamField>
+
+<ParamField path="cache.defaultTTLSeconds" type="number" default="3600">
+  Default TTL when not specified (1 hour).
+</ParamField>
+
+### Environment Variables
+
+```bash .env
+L1_CACHE_MAX_SIZE=104857600  # 100MB in bytes
+L1_CACHE_TTL=300             # 5 minutes
+L2_CACHE_MAX_SIZE=524288000  # 500MB in bytes
+L2_CACHE_TTL=3600            # 1 hour
+```
+
+### Cache Behavior
+
+<Tabs>
+  <Tab title="Hit">
+
+**Cache Hit Flow**:
+
+Check L1 (memory) → If miss, check L2 (disk) → If L2 hit, promote to L1 → Return cached result
+
+Typical latency: **&lt;1ms**
+
+  </Tab>
+  
+  <Tab title="Miss">
+
+**Cache Miss Flow**:
+
+Generate embedding via provider → Store in L2 (disk) for persistence → Store in L1 (memory) for fast access → Return fresh result
+
+Typical latency: **50-500ms** (provider dependent)
+
+  </Tab>
+</Tabs>
+
+<Note>
+  Cache hit rates typically reach 80-90% after initial indexing, providing significant performance improvements.
+</Note>
+
+## Compression Configuration
+
+th0th compresses code context to reduce token usage by 70-98%.
+
+<ParamField path="compression.enabled" type="boolean" default="true">
+  Enable/disable compression globally.
+</ParamField>
+
+<ParamField path="compression.strategy" type="string" default="code_structure">
+  Compression strategy to use. Options:
+  - `code_structure`: Extract function signatures, class definitions, imports (98% reduction)
+  - `conversation_summary`: Summarize conversation history
+  - `semantic_dedup`: Remove semantically duplicate content
+  - `hierarchical`: Multi-level compression preserving hierarchy
+</ParamField>
+
+<ParamField path="compression.targetRatio" type="number" default="0.7">
+  Target compression ratio (0.7 = 70% reduction). Range: 0.1-0.95
+</ParamField>
+
+### Strategy Details
+
+<Tabs>
+  <Tab title="code_structure">
+    
+**Best for**: Code files, API references, implementation details
+
+**Extracts**:
+- Function signatures
+- Class/interface definitions
+- Type definitions
+- Import statements
+- Comments and docstrings
+
+**Removes**:
+- Function bodies
+- Implementation details
+- Verbose code
+
+**Reduction**: 70-98%
+
+```typescript
+// Original (1000 tokens)
+function processUserData(user: User): ProcessedData {
+  const validated = validateUser(user);
+  const normalized = normalizeData(validated);
+  const enriched = enrichUserProfile(normalized);
+  return transformToOutput(enriched);
+}
+
+// Compressed (50 tokens)
+function processUserData(user: User): ProcessedData
+```
+
+  </Tab>
+  
+  <Tab title="semantic_dedup">
+    
+**Best for**: Documentation, repeated patterns
+
+**Removes**:
+- Semantically similar chunks
+- Redundant explanations
+- Duplicate code patterns
+
+**Keeps**:
+- Unique semantic content
+- Different implementations
+
+**Reduction**: 30-60%
+
+  </Tab>
+  
+  <Tab title="hierarchical">
+    
+**Best for**: Large codebases, multi-file context
+
+**Structure**:
+- Level 1: File names and exports
+- Level 2: Function/class signatures
+- Level 3: Implementation details (if space permits)
+
+**Reduction**: 60-85%
+
+  </Tab>
+</Tabs>
+
+### Environment Variables
+
+```bash .env
+MIN_TOKENS_FOR_COMPRESSION=100
+TARGET_COMPRESSION_RATIO=0.7  # 70% reduction
+```
+
+### LLM-Based Compression (Optional)
+
+For advanced summarization, configure an LLM:
+
+```json
+{
+  "compression": {
+    "enabled": true,
+    "strategy": "conversation_summary",
+    "targetRatio": 0.5,
+    "llm": {
+      "provider": "ollama",
+      "model": "llama3.2:latest",
+      "baseURL": "http://localhost:11434"
+    }
+  }
+}
+```
+
+<Warning>
+  LLM-based compression is slower but provides higher quality summaries. Only recommended for conversation summarization.
+</Warning>
+
+## Logging Configuration
+
+<ParamField path="logging.level" type="string" default="info">
+  Log level. Options: `debug`, `info`, `warn`, `error`
+</ParamField>
+
+<ParamField path="logging.enableMetrics" type="boolean" default="false">
+  Enable detailed performance metrics and analytics.
+</ParamField>
+
+### Environment Variables
+
+```bash .env
+LOG_LEVEL=info
+ENABLE_METRICS=true
+```
+
+### Log Levels
+
+<Tabs>
+  <Tab title="debug">
+
+**Use case**: Development, troubleshooting
+
+**Outputs**: All requests and responses, cache hits/misses, provider selection logic, performance timings, detailed error traces
+
+**Warning**: High volume, not recommended for production
+
+  </Tab>
+  
+  <Tab title="info">
+
+**Use case**: Production (default)
+
+**Outputs**: Startup messages, configuration loaded, index operations, search requests, basic errors
+
+**Recommended** for most deployments
+
+  </Tab>
+  
+  <Tab title="warn">
+
+**Use case**: Production with minimal logging
+
+**Outputs**: Configuration issues, fallback provider usage, performance degradation, non-critical errors
+
+  </Tab>
+  
+  <Tab title="error">
+
+**Use case**: Production (alerts only)
+
+**Outputs**: Critical failures, provider unavailability, database errors, API failures
+
+  </Tab>
+</Tabs>
+
+## Data Storage
+
+<ParamField path="dataDir" type="string" default="~/.rlm">
+  Base directory for all data storage. Expands `~` to home directory.
+</ParamField>
+
+### Database Paths
+
+All database paths are relative to the project root:
+
+```bash .env
+# Vector embeddings (ChromaDB)
+VECTOR_DB_PATH=./data/chroma
+
+# L2 cache (SQLite)
+CACHE_DB_PATH=./data/cache.db
+
+# Keyword search index (SQLite FTS5)
+KEYWORD_DB_PATH=./data/keyword.db
+
+# Embedding cache (SHA-256 hashing)
+EMBEDDING_CACHE_DB_PATH=./data/embedding-cache.db
+```
+
+### Directory Structure
+
+```
+~/.rlm/                           # User data directory
+└── projects/
+    └── my-project/
+        ├── chroma/               # Vector embeddings
+        ├── cache.db              # L2 cache
+        ├── keyword.db            # Keyword index
+        └── embedding-cache.db    # Embedding cache
+
+./data/                           # Project-local data (if running from source)
+├── chroma/
+├── cache.db
+├── keyword.db
+└── embedding-cache.db
+```
+
+## Rate Limiting
+
+Protect APIs and prevent abuse:
+
+<ParamField path="REQUESTS_PER_MINUTE" type="number" default="60">
+  Maximum requests per minute per client.
+</ParamField>
+
+<ParamField path="TOKENS_PER_MINUTE" type="number" default="100000">
+  Maximum tokens processed per minute.
+</ParamField>
+
+```bash .env
+REQUESTS_PER_MINUTE=60
+TOKENS_PER_MINUTE=100000
+```
+
+<Note>
+  Rate limits apply per API client. Adjust based on your embedding provider's limits.
+</Note>
+
+## Security
+
+<ParamField path="MAX_INPUT_LENGTH" type="number" default="50000">
+  Maximum input text length in characters. Prevents memory exhaustion.
+</ParamField>
+
+<ParamField path="SANITIZE_INPUTS" type="boolean" default="true">
+  Sanitize inputs to prevent injection attacks and invalid Unicode.
+</ParamField>
+
+```bash .env
+MAX_INPUT_LENGTH=50000
+SANITIZE_INPUTS=true
+```
+
+### Input Sanitization
+
+Automatically removes:
+- Control characters (U+0000 to U+001F)
+- Invalid UTF-16 surrogate pairs
+- Zero-width spaces
+- Replacement character (U+FFFD)
+
+<Warning>
+  Disabling sanitization may cause embedding errors with certain providers. Only disable if you control all inputs.
+</Warning>
+
+## Performance Tuning
+
+### Batch Configuration
+
+```typescript
+// Internal batch settings (not user-configurable)
+export const BATCH_CONFIG = {
+  MAX_TOKENS: 8000,
+  APPROX_CHARS_PER_TOKEN: 4,
+  CONCURRENCY: 4,
+};
+```
+
+### Retry Configuration
+
+```typescript
+export const RETRY_CONFIG = {
+  MAX_ATTEMPTS: 3,
+  BASE_DELAY_MS: 500,
+  MAX_DELAY_MS: 8000,
+  BACKOFF_MULTIPLIER: 2,
+};
+```
+
+**Exponential backoff**:
+- Attempt 1: 500ms
+- Attempt 2: 1000ms
+- Attempt 3: 2000ms
+- Max delay: 8000ms
+
+### Memory Optimization
+
+For constrained environments:
+
+```json
+{
+  "cache": {
+    "l1MaxSizeMB": 50,    // Reduce memory cache
+    "l2MaxSizeMB": 200,   // Reduce disk cache
+    "defaultTTLSeconds": 1800  // Shorter TTL
+  },
+  "compression": {
+    "enabled": true,
+    "targetRatio": 0.8    // Aggressive compression
+  }
+}
+```
+
+### High-Performance Setup
+
+For large-scale deployments:
+
+```json
+{
+  "cache": {
+    "l1MaxSizeMB": 500,   // Larger memory cache
+    "l2MaxSizeMB": 2000,  // Larger disk cache
+    "l1TTL": 600,         // 10 minute memory cache
+    "l2TTL": 7200         // 2 hour disk cache
+  },
+  "embedding": {
+    "provider": "mistral",
+    "model": "codestral-embed",
+    "dimensions": 3072    // Maximum quality
+  }
+}
+```
+
+## Environment Priority
+
+Configuration loading order (highest to lowest priority):
+
+1. **Environment variables** (`.env` file)
+2. **Config file** (`~/.config/th0th/config.json`)
+3. **Default values** (hardcoded)
+
+<Note>
+  Environment variables always override config file settings.
+</Note>
+
+## Configuration Examples
+
+<CodeGroup>
+```json Local Development
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "bge-m3",
+    "baseURL": "http://localhost:11434",
+    "dimensions": 1024
+  },
+  "compression": {
+    "enabled": true,
+    "strategy": "code_structure",
+    "targetRatio": 0.7
+  },
+  "cache": {
+    "enabled": true,
+    "l1MaxSizeMB": 100,
+    "l2MaxSizeMB": 500
+  },
+  "logging": {
+    "level": "debug",
+    "enableMetrics": true
+  }
+}
+```
+
+```json Production (Cloud)
+{
+  "embedding": {
+    "provider": "mistral",
+    "model": "codestral-embed",
+    "apiKey": "${MISTRAL_API_KEY}",
+    "dimensions": 1536
+  },
+  "compression": {
+    "enabled": true,
+    "strategy": "code_structure",
+    "targetRatio": 0.8
+  },
+  "cache": {
+    "enabled": true,
+    "l1MaxSizeMB": 500,
+    "l2MaxSizeMB": 2000,
+    "defaultTTLSeconds": 7200
+  },
+  "logging": {
+    "level": "info",
+    "enableMetrics": true
+  }
+}
+```
+
+```json Minimal (Resource Constrained)
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "baseURL": "http://localhost:11434",
+    "dimensions": 768
+  },
+  "compression": {
+    "enabled": true,
+    "strategy": "code_structure",
+    "targetRatio": 0.9
+  },
+  "cache": {
+    "enabled": true,
+    "l1MaxSizeMB": 25,
+    "l2MaxSizeMB": 100
+  },
+  "logging": {
+    "level": "warn",
+    "enableMetrics": false
+  }
+}
+```
+</CodeGroup>
+
+## Troubleshooting
+
+### Config Not Loading
+
+```bash
+# Verify config file exists
+npx @th0th-ai/mcp-client --config-path
+ls -la ~/.config/th0th/config.json
+
+# Check config is valid JSON
+cat ~/.config/th0th/config.json | jq
+
+# Reinitialize if corrupted
+npx @th0th-ai/mcp-client --config-init
+```
+
+### Cache Issues
+
+```bash
+# Clear all caches
+rm ./data/cache.db
+rm ./data/embedding-cache.db
+
+# Disable cache temporarily
+export L1_CACHE_MAX_SIZE=0
+export L2_CACHE_MAX_SIZE=0
+```
+
+### Performance Issues
+
+Enable metrics to diagnose:
+
+```bash
+LOG_LEVEL=debug ENABLE_METRICS=true bun run start:api
+```
+
+Check metrics endpoint:
+
+```bash
+curl http://localhost:3333/api/v1/analytics
+```
+
+## Next Steps
+
+<Card title="Embedding Providers" icon="microchip" href="/configuration/embedding-providers">
+  Configure Ollama, Mistral, or OpenAI for semantic search.
+</Card>
+
+<Card title="Monitoring" icon="chart-line" href="/operations/monitoring">
+  Set up monitoring and analytics for production deployments.
+</Card>

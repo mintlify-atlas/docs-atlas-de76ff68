@@ -1,0 +1,368 @@
+---
+title: 'Embedding Providers'
+description: 'Configure Ollama, Mistral, and OpenAI embedding providers for semantic search'
+---
+
+th0th supports multiple embedding providers for semantic code search. Choose between local (Ollama) or cloud providers (Mistral, OpenAI) based on your requirements.
+
+## Provider Comparison
+
+| Provider | Model | Dimensions | Cost | Quality | Latency |
+|----------|-------|------------|------|---------|--------|
+| **Ollama** | nomic-embed-text, bge-m3 | 768-1024 | Free | Good | Low (local) |
+| **Mistral** | mistral-embed | 1024 | $$ | Great | Medium |
+| **Mistral** | codestral-embed | 1536-3072 | $$ | Great (code) | Medium |
+| **OpenAI** | text-embedding-3-small | 1536 | $$ | Great | Medium |
+
+## Quick Setup
+
+<Tabs>
+  <Tab title="Ollama (Default)">
+    
+### 100% Offline Setup
+
+Ollama runs locally with no external dependencies or costs.
+
+```bash
+# Automated setup
+./scripts/setup-local-first.sh
+
+# Manual setup
+ollama pull nomic-embed-text:latest
+# or
+ollama pull bge-m3
+```
+
+**Configuration file** (`~/.config/th0th/config.json`):
+
+```json
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "baseURL": "http://localhost:11434",
+    "dimensions": 768
+  }
+}
+```
+
+**Environment variables** (`.env`):
+
+```bash
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=bge-m3
+OLLAMA_EMBEDDING_DIMENSIONS=1024
+```
+
+<Note>
+  The `bge-m3` model provides better quality (1024 dimensions) compared to `nomic-embed-text` (768 dimensions), but requires more compute resources.
+</Note>
+
+  </Tab>
+  
+  <Tab title="Mistral">
+
+### Text Embeddings
+
+General purpose embeddings for documentation and text search.
+
+```bash
+# Initialize with Mistral
+npx @th0th-ai/mcp-client --config-init --mistral YOUR_API_KEY
+```
+
+**Configuration file**:
+
+```json
+{
+  "embedding": {
+    "provider": "mistral",
+    "model": "mistral-embed",
+    "apiKey": "YOUR_MISTRAL_API_KEY",
+    "dimensions": 1024
+  }
+}
+```
+
+### Code Embeddings
+
+Optimized for code repositories with specialized code understanding.
+
+```json
+{
+  "embedding": {
+    "provider": "mistral",
+    "model": "codestral-embed",
+    "apiKey": "YOUR_MISTRAL_API_KEY",
+    "dimensions": 1536
+  }
+}
+```
+
+**Environment variables**:
+
+```bash
+MISTRAL_API_KEY=your-api-key-here
+MISTRAL_TEXT_EMBEDDING_MODEL=mistral-embed
+MISTRAL_CODE_EMBEDDING_MODEL=codestral-embed
+```
+
+<Warning>
+  Codestral-embed supports up to 3072 dimensions but defaults to 1536. Higher dimensions increase quality but also computational cost.
+</Warning>
+
+  </Tab>
+  
+  <Tab title="OpenAI">
+
+### Setup
+
+```bash
+# Initialize with OpenAI
+npx @th0th-ai/mcp-client --config-init --openai YOUR_API_KEY
+```
+
+**Configuration file**:
+
+```json
+{
+  "embedding": {
+    "provider": "openai",
+    "model": "text-embedding-3-small",
+    "apiKey": "YOUR_OPENAI_API_KEY",
+    "dimensions": 1536
+  }
+}
+```
+
+**Environment variables**:
+
+```bash
+OPENAI_API_KEY=your-api-key-here
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+```
+
+<Note>
+  OpenAI also offers `text-embedding-3-large` for higher quality at increased cost.
+</Note>
+
+  </Tab>
+</Tabs>
+
+## Multi-Provider Fallback
+
+th0th automatically falls back to alternative providers if the primary fails. Providers are prioritized by configuration:
+
+<CodeGroup>
+```typescript packages/core/src/services/embeddings/config.ts
+export const embeddingProviders: Record<string, EmbeddingProviderConfig> = {
+  ollama: {
+    provider: "ollama",
+    model: process.env.OLLAMA_EMBEDDING_MODEL || "bge-m3",
+    baseURL: process.env.OLLAMA_BASE_URL || "http://localhost:11434",
+    dimensions: 1024,
+    priority: 1, // Highest priority (local, fast, free)
+    timeout: 300000, // 5 minutes
+    maxRetries: 2,
+  },
+  
+  mistralText: {
+    provider: "mistral",
+    model: process.env.MISTRAL_TEXT_EMBEDDING_MODEL || "mistral-embed",
+    apiKey: process.env.MISTRAL_API_KEY,
+    dimensions: 1024,
+    priority: 2, // Fallback if Ollama unavailable
+    timeout: 60000,
+    maxRetries: 3,
+  },
+
+  mistralCode: {
+    provider: "mistral",
+    model: process.env.MISTRAL_CODE_EMBEDDING_MODEL || "codestral-embed",
+    apiKey: process.env.MISTRAL_API_KEY,
+    dimensions: 1536,
+    priority: 3,
+    timeout: 60000,
+    maxRetries: 3,
+  },
+};
+```
+</CodeGroup>
+
+### Priority System
+
+1. **Priority 1**: Ollama (local, fast, free)
+2. **Priority 2**: Mistral Text (general purpose)
+3. **Priority 3**: Mistral Code (specialized for code)
+4. **Priority 10**: OpenAI, Google, Cohere (optional)
+
+<Note>
+  Lower priority numbers = higher priority. The system tries each provider in order until one succeeds.
+</Note>
+
+## Advanced Configuration
+
+### Remote Ollama (WSL/Docker)
+
+Point to Ollama running on a different host:
+
+```bash
+# WSL pointing to Windows host
+export OLLAMA_HOST=http://host.docker.internal:11434
+
+# Remote server
+export OLLAMA_HOST=http://192.168.1.100:11434
+```
+
+**Config file**:
+
+```json
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "bge-m3",
+    "baseURL": "http://host.docker.internal:11434",
+    "dimensions": 1024
+  }
+}
+```
+
+### Custom Model Dimensions
+
+Override automatic dimension detection:
+
+```bash
+npx @th0th-ai/mcp-client --config-set embedding.dimensions 1024
+```
+
+### Retry Configuration
+
+<ParamField path="timeout" type="number" default="60000">
+  Timeout for embedding requests in milliseconds. Ollama defaults to 300000 (5 minutes) for initial model loading.
+</ParamField>
+
+<ParamField path="maxRetries" type="number" default="3">
+  Maximum retry attempts for failed embedding requests.
+</ParamField>
+
+<ParamField path="priority" type="number" default="10">
+  Provider priority (1 = highest). Lower values are tried first.
+</ParamField>
+
+### Rate Limiting (Ollama)
+
+Ollama requests are automatically rate-limited to prevent server overload:
+
+```typescript
+// 50ms delay between requests
+private static readonly OLLAMA_DELAY_MS = 50;
+```
+
+This ensures stable performance when processing large codebases.
+
+## Switching Providers
+
+### Using Config CLI
+
+```bash
+# Show current config
+npx @th0th-ai/mcp-client --config-show
+
+# Switch to Mistral
+npx @th0th-ai/mcp-client --config-init --mistral YOUR_KEY
+
+# Switch to OpenAI
+npx @th0th-ai/mcp-client --config-init --openai YOUR_KEY
+
+# Switch back to Ollama with different model
+npx @th0th-ai/mcp-client --config-init --ollama-model nomic-embed-text
+```
+
+### Manual Edit
+
+Edit `~/.config/th0th/config.json` directly:
+
+```bash
+# Find config path
+npx @th0th-ai/mcp-client --config-path
+
+# Edit with your preferred editor
+vim ~/.config/th0th/config.json
+```
+
+## Embedding Cache
+
+th0th caches embeddings using SHA-256 content hashing to avoid redundant API calls:
+
+```bash
+# Cache location
+EMBEDDING_CACHE_DB_PATH=./data/embedding-cache.db
+```
+
+Cache benefits:
+- Reduces API costs for cloud providers
+- Faster repeated searches on same content
+- Persists across restarts
+
+<Card title="Performance Metrics" icon="chart-line">
+  Cache hit rate typically reaches 80-90% after initial indexing, significantly reducing embedding API usage.
+</Card>
+
+## Troubleshooting
+
+### Ollama Connection Issues
+
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Start Ollama
+ollama serve
+
+# Check logs
+journalctl -u ollama -f
+```
+
+### Model Not Found
+
+```bash
+# List available models
+ollama list
+
+# Pull missing model
+ollama pull bge-m3
+```
+
+### API Key Errors (Mistral/OpenAI)
+
+<Warning>
+  Ensure your API key is set in either:
+  - Config file: `~/.config/th0th/config.json`
+  - Environment variable: `MISTRAL_API_KEY` or `OPENAI_API_KEY`
+</Warning>
+
+```bash
+# Verify API key is loaded
+npx @th0th-ai/mcp-client --config-show
+```
+
+### Dimension Mismatch
+
+If you change embedding models, you must re-index:
+
+```bash
+# Clear existing embeddings
+rm -rf ./data/chroma
+rm ./data/embedding-cache.db
+
+# Re-index with new model
+curl -X POST http://localhost:3333/api/v1/project/index \
+  -H "Content-Type: application/json" \
+  -d '{"projectPath": "/path/to/project", "projectId": "my-project"}'
+```
+
+## Next Steps
+
+<Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced-config">
+  Learn about cache settings, compression strategies, and logging configuration.
+</Card>

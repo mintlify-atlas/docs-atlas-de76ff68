@@ -1,0 +1,450 @@
+---
+title: 'Monitoring'
+description: 'Monitor th0th health, performance, and resource usage'
+icon: 'chart-line'
+---
+
+## Health Check Endpoints
+
+th0th provides multiple endpoints for monitoring system health and performance.
+
+### Basic Health Check
+
+The simplest health check endpoint returns service status:
+
+```bash
+curl http://localhost:3333/health
+```
+
+<CodeGroup>
+```json Response (Healthy)
+{
+  "status": "ok",
+  "service": "th0th-tools-api",
+  "version": "1.0.0",
+  "timestamp": "2026-03-09T12:34:56.789Z"
+}
+```
+</CodeGroup>
+
+<Note>
+  This endpoint is used by Docker health checks and load balancers. It has minimal overhead and should respond within 100ms.
+</Note>
+
+### Comprehensive Health Check
+
+For detailed local-first service health:
+
+```bash
+curl http://localhost:3333/api/v1/system/health/local
+```
+
+<Accordion title="Sample Response">
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "ollama": {
+      "status": "healthy",
+      "latency": 45,
+      "baseUrl": "http://localhost:11434",
+      "model": "nomic-embed-text:latest"
+    },
+    "databases": {
+      "status": "healthy",
+      "vector": true,
+      "cache": true,
+      "keyword": true,
+      "memory": true
+    },
+    "dataDirectory": {
+      "status": "healthy",
+      "path": "/home/user/.rlm",
+      "writable": true,
+      "diskSpace": "45GB"
+    }
+  },
+  "recommendations": [],
+  "timestamp": "2026-03-09T12:34:56.789Z"
+}
+```
+</Accordion>
+
+**Checks performed:**
+- Ollama API connectivity and model availability
+- SQLite database file existence and accessibility
+- Data directory write permissions
+- Disk space availability
+
+### System Status
+
+Get service-level status information:
+
+```bash
+curl http://localhost:3333/api/v1/system/status
+```
+
+```json
+{
+  "status": "healthy",
+  "services": {
+    "memories": true,
+    "vectorStore": true,
+    "searchCache": true,
+    "analytics": true,
+    "keywordSearch": true,
+    "embeddingCache": true
+  },
+  "timestamp": "2026-03-09T12:34:56.789Z"
+}
+```
+
+<Warning>
+  If `status` is `degraded`, one or more critical databases are missing or inaccessible. Check the `services` object to identify the issue.
+</Warning>
+
+## System Metrics
+
+### System Information
+
+Get detailed system and resource information:
+
+```bash
+curl http://localhost:3333/api/v1/system/info
+```
+
+<Accordion title="Sample Response">
+```json
+{
+  "version": "1.0.0",
+  "service": "th0th-tools-api",
+  "node": "v20.11.0",
+  "platform": "linux",
+  "arch": "x64",
+  "uptime": 3600,
+  "memory": {
+    "total": 16777216000,
+    "free": 8388608000,
+    "used": 8388608000,
+    "process": {
+      "rss": 157286400,
+      "heapTotal": 52428800,
+      "heapUsed": 41943040,
+      "external": 2097152
+    }
+  },
+  "dataDir": "/home/user/.rlm",
+  "databases": {
+    "sizes": {
+      "memories.db": "2.3 MB",
+      "vector-store.db": "456 MB",
+      "search-cache.db": "89 MB",
+      "search-analytics.db": "12 MB",
+      "keyword-search.db": "234 MB",
+      "embedding-cache.db": "178 MB"
+    },
+    "total": "971.3 MB",
+    "totalBytes": 1018368000
+  },
+  "timestamp": "2026-03-09T12:34:56.789Z"
+}
+```
+</Accordion>
+
+**Key metrics:**
+- **uptime**: Process uptime in seconds
+- **memory.process**: Node.js process memory usage
+- **databases.total**: Total disk space used by all databases
+
+### Performance Metrics
+
+Get aggregated performance and usage metrics:
+
+```bash
+curl http://localhost:3333/api/v1/system/metrics
+```
+
+```json
+{
+  "system": {
+    "dataSize": "971.3 MB",
+    "dataSizeBytes": 1018368000,
+    "uptime": 3600,
+    "memory": {
+      "heapUsed": "40 MB",
+      "heapTotal": "50 MB",
+      "rss": "150 MB"
+    }
+  },
+  "timestamp": "2026-03-09T12:34:56.789Z"
+}
+```
+
+### Ollama Status
+
+Check Ollama service and available models:
+
+```bash
+curl http://localhost:3333/api/v1/system/ollama
+```
+
+```json
+{
+  "status": "healthy",
+  "latency": 42,
+  "models": [
+    "nomic-embed-text:latest",
+    "bge-m3:latest",
+    "llama3.2:latest"
+  ],
+  "configuredModel": "nomic-embed-text:latest",
+  "baseUrl": "http://localhost:11434"
+}
+```
+
+## Analytics and Usage
+
+Track search performance, cache efficiency, and usage patterns:
+
+```bash
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "summary"}'
+```
+
+### Analytics Types
+
+<CodeGroup>
+```bash Summary
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "summary"}'
+```
+
+```bash By Project
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "project", "projectId": "my-app"}'
+```
+
+```bash Cache Performance
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "cache"}'
+```
+
+```bash Recent Searches
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "recent", "limit": 20}'
+```
+</CodeGroup>
+
+## Docker Health Checks
+
+When running via Docker Compose, automatic health checks are configured:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+  interval: 30s
+  timeout: 3s
+  start_period: 40s
+  retries: 3
+```
+
+**Configuration:**
+- **interval**: Check every 30 seconds
+- **timeout**: Fail if no response within 3 seconds
+- **start_period**: Allow 40 seconds for startup
+- **retries**: Mark unhealthy after 3 consecutive failures
+
+View health status:
+
+```bash
+docker ps
+# Look for "(healthy)" or "(unhealthy)" in STATUS column
+```
+
+Inspect health history:
+
+```bash
+docker inspect th0th-api | grep -A 20 Health
+```
+
+## Monitoring Integrations
+
+### Prometheus
+
+Export metrics for Prometheus scraping:
+
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'th0th'
+    static_configs:
+      - targets: ['localhost:3333']
+    metrics_path: '/api/v1/system/metrics'
+    scrape_interval: 30s
+```
+
+### Uptime Monitoring
+
+Use services like UptimeRobot, Pingdom, or StatusCake:
+
+```
+Monitor URL: http://your-server:3333/health
+Interval: 5 minutes
+Method: GET
+Expected: 200 OK
+Keyword: "ok"
+```
+
+### Custom Health Checks
+
+Create custom monitoring scripts:
+
+<CodeGroup>
+```bash Shell Script
+#!/bin/bash
+RESPONSE=$(curl -sf http://localhost:3333/health)
+if [ $? -eq 0 ] && echo "$RESPONSE" | grep -q '"status":"ok"'; then
+  echo "th0th is healthy"
+  exit 0
+else
+  echo "th0th is unhealthy"
+  exit 1
+fi
+```
+
+```python Python Script
+import requests
+import sys
+
+try:
+    response = requests.get('http://localhost:3333/health', timeout=3)
+    if response.status_code == 200 and response.json()['status'] == 'ok':
+        print('th0th is healthy')
+        sys.exit(0)
+except Exception as e:
+    print(f'th0th is unhealthy: {e}')
+    sys.exit(1)
+```
+</CodeGroup>
+
+## Log Monitoring
+
+### API Logs
+
+View real-time logs:
+
+```bash
+# Docker deployment
+docker compose logs -f api
+
+# Source deployment
+bun run start:api  # Logs to stdout
+```
+
+### Log Levels
+
+Configure log verbosity via `LOG_LEVEL` environment variable:
+
+```bash
+LOG_LEVEL=debug  # Verbose debugging
+LOG_LEVEL=info   # Default operational logs
+LOG_LEVEL=warn   # Warnings and errors only
+LOG_LEVEL=error  # Errors only
+```
+
+### Startup Health Check
+
+On startup, th0th automatically runs a local-first health check:
+
+```
+th0th Tools API running at http://localhost:3333
+Swagger docs at http://localhost:3333/swagger
+Local-first health: ALL SERVICES HEALTHY
+```
+
+If services are degraded:
+
+```
+Local-first health: DEGRADED
+  -> Ollama is not responding at http://localhost:11434
+  -> Run: ollama serve
+  -> Or update OLLAMA_BASE_URL environment variable
+```
+
+## Performance Benchmarks
+
+Monitor key performance indicators:
+
+### Response Time Targets
+
+| Endpoint | Target | Acceptable |
+|----------|--------|------------|
+| `/health` | < 50ms | < 200ms |
+| `/api/v1/system/status` | < 100ms | < 500ms |
+| `/api/v1/search/project` | < 2s | < 5s |
+| `/api/v1/project/index` | N/A | Depends on size |
+
+### Cache Hit Rates
+
+Monitor cache performance:
+
+```bash
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "cache"}'
+```
+
+**Target metrics:**
+- L1 cache hit rate: > 60%
+- L2 cache hit rate: > 80%
+- Embedding cache hit rate: > 90% (for repeated content)
+
+### Resource Usage
+
+**Memory:**
+- Base memory: ~150MB
+- With active caches: ~250-500MB
+- Under heavy load: < 1GB
+
+**Disk:**
+- Fresh install: < 50MB
+- After indexing 10 projects: ~500MB - 2GB
+- Embedding cache grows with unique content
+
+## Alerting
+
+Set up alerts for critical conditions:
+
+<Steps>
+  <Step title="Service Down">
+    Alert when `/health` returns non-200 status
+  </Step>
+
+  <Step title="Ollama Unavailable">
+    Alert when `/api/v1/system/ollama` reports unhealthy status
+  </Step>
+
+  <Step title="Disk Space">
+    Alert when database total size exceeds threshold (e.g., 10GB)
+  </Step>
+
+  <Step title="High Memory">
+    Alert when process RSS exceeds 2GB
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Deployment" icon="rocket" href="/operations/deployment">
+    Deployment configuration and setup
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operations/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

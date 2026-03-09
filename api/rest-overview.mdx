@@ -1,0 +1,213 @@
+---
+title: 'REST API Overview'
+description: 'HTTP API for semantic search, memory, and context compression'
+---
+
+## Introduction
+
+The th0th REST API provides HTTP endpoints for all core functionality:
+
+- **Semantic Search** - Hybrid vector + keyword search with RRF ranking
+- **Memory** - Persistent storage across sessions
+- **Project Indexing** - Background indexing with progress tracking
+- **Context Compression** - 70-98% token reduction
+- **Analytics** - Usage metrics and cache performance
+- **System Health** - Local-first service monitoring
+
+## Base URL
+
+```bash
+http://localhost:3333
+```
+
+Configure the port via the `TH0TH_API_PORT` environment variable.
+
+## Authentication
+
+<Note>
+The API currently operates without authentication for local-first deployments. For production deployments, configure authentication via environment variables.
+</Note>
+
+## Starting the API
+
+<CodeGroup>
+
+```bash Development
+bun run dev:api
+```
+
+```bash Production
+bun run start:api
+```
+
+```bash Docker
+docker compose up api
+```
+
+</CodeGroup>
+
+## Interactive Documentation
+
+Swagger UI is available at:
+
+```
+http://localhost:3333/swagger
+```
+
+## Response Format
+
+All endpoints return JSON responses with a consistent structure:
+
+<Tabs>
+  <Tab title="Success Response">
+    ```json
+    {
+      "success": true,
+      "data": {
+        // endpoint-specific data
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="Error Response">
+    ```json
+    {
+      "success": false,
+      "error": "Error message describing what went wrong"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## API Groups
+
+<CardGroup cols={2}>
+
+<Card title="Search" icon="magnifying-glass" href="/api/endpoints#search-endpoints">
+  Semantic and keyword search in indexed projects
+</Card>
+
+<Card title="Memory" icon="brain" href="/api/endpoints#memory-endpoints">
+  Store and recall information across sessions
+</Card>
+
+<Card title="Project" icon="folder-tree" href="/api/endpoints#project-endpoints">
+  Index codebases and manage projects
+</Card>
+
+<Card title="Context" icon="compress" href="/api/endpoints#context-endpoints">
+  Compress and optimize context for AI models
+</Card>
+
+<Card title="Analytics" icon="chart-line" href="/api/endpoints#analytics-endpoints">
+  Usage patterns and performance metrics
+</Card>
+
+<Card title="System" icon="server" href="/api/endpoints#system-endpoints">
+  Health checks and system information
+</Card>
+
+</CardGroup>
+
+## Quick Examples
+
+<CodeGroup>
+
+```bash Health Check
+curl http://localhost:3333/health
+```
+
+```bash Index Project
+curl -X POST http://localhost:3333/api/v1/project/index \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectPath": "/home/user/my-project",
+    "projectId": "my-project"
+  }'
+```
+
+```bash Search
+curl -X POST http://localhost:3333/api/v1/search/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "authentication logic",
+    "projectId": "my-project",
+    "maxResults": 10
+  }'
+```
+
+```bash Store Memory
+curl -X POST http://localhost:3333/api/v1/memory/store \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "User prefers TypeScript for new features",
+    "type": "preference",
+    "importance": 0.8
+  }'
+```
+
+```bash Compress Context
+curl -X POST http://localhost:3333/api/v1/context/compress \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "...code content...",
+    "strategy": "code_structure",
+    "targetRatio": 0.7
+  }'
+```
+
+</CodeGroup>
+
+## Rate Limiting
+
+<Info>
+No rate limiting is enforced by default for local-first deployments. Configure rate limiting via middleware for production use.
+</Info>
+
+## CORS
+
+CORS is enabled by default to allow browser-based clients. Configure CORS settings via the ElysiaJS CORS plugin in `apps/tools-api/src/index.ts`.
+
+## Error Handling
+
+The API uses standard HTTP status codes:
+
+| Status Code | Description |
+|-------------|-------------|
+| `200` | Success |
+| `400` | Bad Request - Invalid parameters |
+| `404` | Not Found - Resource doesn't exist |
+| `500` | Internal Server Error - Server-side error |
+
+## Local-First Architecture
+
+The API is designed for **100% offline operation**:
+
+- **Embeddings**: Ollama (local) or cloud providers
+- **Vector Store**: SQLite with vector extensions
+- **Memory**: SQLite persistent storage
+- **Cache**: Multi-level L1/L2 with TTL
+
+No external services required for core functionality.
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Explore Endpoints" icon="list" href="/api/endpoints">
+  View detailed endpoint documentation
+</Card>
+
+<Card title="MCP Integration" icon="plug" href="/api/mcp-overview">
+  Use th0th via Model Context Protocol
+</Card>
+
+<Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+  Configure embedding providers
+</Card>
+
+<Card title="OpenCode Plugin" icon="puzzle-piece" href="/integration/opencode">
+  Integrate with OpenCode editor
+</Card>
+
+</CardGroup>

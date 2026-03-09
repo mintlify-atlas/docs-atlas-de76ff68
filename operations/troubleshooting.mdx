@@ -1,0 +1,637 @@
+---
+title: 'Troubleshooting'
+description: 'Common issues and solutions for th0th deployment and operation'
+icon: 'wrench'
+---
+
+## Quick Diagnostics
+
+Run the comprehensive health check to identify issues:
+
+```bash
+curl http://localhost:3333/api/v1/system/health/local
+```
+
+The response includes specific recommendations for any detected problems.
+
+## Common Issues
+
+### API Not Starting
+
+<Accordion title="Port already in use">
+**Symptom:** Error message `EADDRINUSE: address already in use ::1:3333`
+
+**Solution:**
+
+1. Check what's using port 3333:
+   ```bash
+   # Linux/Mac
+   lsof -i :3333
+   
+   # Or using netstat
+   netstat -tulpn | grep 3333
+   ```
+
+2. Either stop the conflicting service or change th0th's port:
+   ```bash
+   export TH0TH_API_PORT=3334
+   bun run start:api
+   ```
+
+3. For Docker:
+   ```yaml
+   # docker-compose.yml
+   ports:
+     - "3334:3333"
+   ```
+</Accordion>
+
+<Accordion title="Environment variables not loaded">
+**Symptom:** API uses default values instead of `.env` configuration
+
+**Solution:**
+
+1. Verify `.env` file location (must be at project root):
+   ```bash
+   ls -la .env
+   ```
+
+2. Check file permissions:
+   ```bash
+   chmod 644 .env
+   ```
+
+3. For Docker, ensure environment is passed:
+   ```yaml
+   services:
+     api:
+       env_file:
+         - .env
+   ```
+
+4. Restart the service after changes:
+   ```bash
+   # Docker
+   docker compose restart api
+   
+   # Source
+   # Stop with Ctrl+C and restart
+   bun run start:api
+   ```
+</Accordion>
+
+<Accordion title="Database initialization errors">
+**Symptom:** Errors about missing or locked database files
+
+**Solution:**
+
+1. Ensure data directory exists and is writable:
+   ```bash
+   mkdir -p ~/.rlm
+   chmod 755 ~/.rlm
+   ```
+
+2. For Docker, check volume permissions:
+   ```bash
+   docker volume inspect th0th-data
+   ```
+
+3. Clear corrupted databases (⚠️ DELETES ALL DATA):
+   ```bash
+   # Docker
+   docker compose down -v
+   docker compose up -d
+   
+   # Source
+   rm -rf ~/.rlm/*.db
+   bun run start:api
+   ```
+</Accordion>
+
+### Ollama Connection Issues
+
+<Accordion title="Ollama not responding">
+**Symptom:** Health check shows `Ollama is not responding`
+
+**Solutions:**
+
+<Steps>
+  <Step title="Verify Ollama is running">
+    ```bash
+    # Check if Ollama is running
+    curl http://localhost:11434/api/tags
+    
+    # If not running, start it
+    ollama serve
+    ```
+  </Step>
+
+  <Step title="Check the correct URL">
+    ```bash
+    # Test with your configured URL
+    curl ${OLLAMA_BASE_URL}/api/tags
+    ```
+  </Step>
+
+  <Step title="WSL/Docker: Use host.docker.internal">
+    If Ollama is on Windows host and th0th in WSL/Docker:
+    
+    ```bash
+    # .env
+    OLLAMA_BASE_URL=http://host.docker.internal:11434
+    ```
+  </Step>
+
+  <Step title="Remote Ollama: Update base URL">
+    ```bash
+    # .env
+    OLLAMA_BASE_URL=http://192.168.1.100:11434
+    ```
+  </Step>
+</Steps>
+</Accordion>
+
+<Accordion title="Embedding model not found">
+**Symptom:** Error `model 'nomic-embed-text' not found`
+
+**Solution:**
+
+1. List available models:
+   ```bash
+   ollama list
+   # Or via API
+   curl http://localhost:11434/api/tags
+   ```
+
+2. Pull the required model:
+   ```bash
+   ollama pull nomic-embed-text:latest
+   # Or alternative
+   ollama pull bge-m3
+   ```
+
+3. Update `.env` to match available model:
+   ```bash
+   OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
+   OLLAMA_EMBEDDING_DIMENSIONS=768
+   ```
+
+4. Restart th0th:
+   ```bash
+   docker compose restart api
+   ```
+</Accordion>
+
+<Accordion title="Slow embedding generation">
+**Symptom:** Indexing or search operations take too long
+
+**Performance tuning:**
+
+1. **Use GPU acceleration** (if available):
+   ```bash
+   # Install CUDA support for Ollama
+   # See: https://ollama.com/download
+   ```
+
+2. **Switch to smaller model**:
+   ```bash
+   OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
+   OLLAMA_EMBEDDING_DIMENSIONS=768
+   ```
+
+3. **Enable embedding cache**:
+   ```bash
+   # .env
+   EMBEDDING_CACHE_DB_PATH=./data/embedding-cache.db
+   ```
+
+4. **Increase Ollama concurrency**:
+   ```bash
+   # Set before starting Ollama
+   export OLLAMA_NUM_PARALLEL=4
+   ollama serve
+   ```
+</Accordion>
+
+### Docker Issues
+
+<Accordion title="Container exits immediately">
+**Symptom:** `docker compose up` shows container exiting with code 0 or 1
+
+**Diagnosis:**
+
+```bash
+# View container logs
+docker compose logs api
+
+# View last run logs
+docker logs th0th-api
+```
+
+**Common causes:**
+
+1. **Missing Ollama connection**: Ensure `OLLAMA_BASE_URL` points to accessible Ollama instance
+2. **Permission errors**: Check volume mount permissions
+3. **Port conflict**: Another service using port 3333
+
+**Solution:**
+
+```bash
+# Fix and rebuild
+docker compose down
+docker compose build --no-cache
+docker compose up -d
+```
+</Accordion>
+
+<Accordion title="Health check failing">
+**Symptom:** Container shows as `unhealthy` in `docker ps`
+
+**Diagnosis:**
+
+```bash
+# Check health status
+docker inspect th0th-api --format='{{json .State.Health}}' | jq
+
+# View health check logs
+docker inspect th0th-api | grep -A 30 Health
+```
+
+**Solutions:**
+
+1. **Increase start period** (for slow systems):
+   ```yaml
+   healthcheck:
+     start_period: 60s  # Default: 40s
+   ```
+
+2. **Check if API is actually running**:
+   ```bash
+   docker compose exec api curl -f http://localhost:3333/health
+   ```
+
+3. **View API logs**:
+   ```bash
+   docker compose logs -f api
+   ```
+</Accordion>
+
+<Accordion title="Volume data not persisting">
+**Symptom:** Indexed projects disappear after container restart
+
+**Solution:**
+
+1. **Verify volume is mounted**:
+   ```bash
+   docker compose config
+   # Check for 'th0th-data:/data' under volumes
+   ```
+
+2. **Check volume exists**:
+   ```bash
+   docker volume ls | grep th0th
+   ```
+
+3. **Inspect volume location**:
+   ```bash
+   docker volume inspect th0th-data
+   ```
+
+4. **Ensure using named volume** (not bind mount):
+   ```yaml
+   # docker-compose.yml
+   volumes:
+     - th0th-data:/data  # ✓ Named volume
+     # NOT: ./data:/data  # ✗ Bind mount
+   
+   volumes:
+     th0th-data:
+       driver: local
+   ```
+</Accordion>
+
+### Search and Indexing Issues
+
+<Accordion title="Search returns no results">
+**Symptom:** Search endpoint returns empty results for known content
+
+**Diagnosis:**
+
+1. **Check if project is indexed**:
+   ```bash
+   curl http://localhost:3333/api/v1/system/info
+   # Check databases.sizes for non-zero vector-store.db
+   ```
+
+2. **Verify project ID**:
+   ```bash
+   curl -X POST http://localhost:3333/api/v1/search/project \
+     -H "Content-Type: application/json" \
+     -d '{"query": "test", "projectId": "your-project-id"}'
+   ```
+
+**Solutions:**
+
+1. **Re-index the project**:
+   ```bash
+   curl -X POST http://localhost:3333/api/v1/project/index \
+     -H "Content-Type: application/json" \
+     -d '{
+       "projectPath": "/path/to/project",
+       "projectId": "my-project"
+     }'
+   ```
+
+2. **Check embedding cache**:
+   ```bash
+   # View cache analytics
+   curl -X POST http://localhost:3333/api/v1/analytics \
+     -H "Content-Type: application/json" \
+     -d '{"type": "cache"}'
+   ```
+</Accordion>
+
+<Accordion title="Indexing fails or is very slow">
+**Symptom:** Project indexing times out or takes hours
+
+**Solutions:**
+
+1. **Check available disk space**:
+   ```bash
+   df -h
+   ```
+
+2. **Exclude large directories**:
+   ```bash
+   # Use .gitignore patterns
+   # th0th respects .gitignore automatically
+   echo "node_modules/" >> .gitignore
+   echo "dist/" >> .gitignore
+   echo "*.log" >> .gitignore
+   ```
+
+3. **Increase memory limits** (Docker):
+   ```yaml
+   services:
+     api:
+       mem_limit: 4g
+       memswap_limit: 4g
+   ```
+
+4. **Monitor progress**:
+   ```bash
+   # Watch logs during indexing
+   docker compose logs -f api
+   ```
+</Accordion>
+
+<Accordion title="Cache not working">
+**Symptom:** Every search takes same time, no cache hits
+
+**Diagnosis:**
+
+```bash
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "cache"}'
+```
+
+**Solutions:**
+
+1. **Verify cache configuration**:
+   ```bash
+   # .env
+   L1_CACHE_MAX_SIZE=104857600
+   L1_CACHE_TTL=300
+   L2_CACHE_MAX_SIZE=524288000
+   L2_CACHE_TTL=3600
+   ```
+
+2. **Check cache database**:
+   ```bash
+   ls -lh ~/.rlm/search-cache.db
+   # Or for Docker
+   docker compose exec api ls -lh /data/search-cache.db
+   ```
+
+3. **Clear corrupted cache**:
+   ```bash
+   rm ~/.rlm/search-cache.db
+   # Restart API to recreate
+   ```
+</Accordion>
+
+### Memory and Performance
+
+<Accordion title="High memory usage">
+**Symptom:** Process using excessive RAM (> 2GB)
+
+**Diagnosis:**
+
+```bash
+curl http://localhost:3333/api/v1/system/info
+# Check memory.process.rss
+```
+
+**Solutions:**
+
+1. **Reduce cache sizes**:
+   ```bash
+   # .env
+   L1_CACHE_MAX_SIZE=52428800   # 50MB
+   L2_CACHE_MAX_SIZE=262144000  # 250MB
+   ```
+
+2. **Restart service periodically** (clears in-memory cache):
+   ```bash
+   docker compose restart api
+   ```
+
+3. **Set Node.js memory limits**:
+   ```bash
+   # For source deployment
+   NODE_OPTIONS="--max-old-space-size=1024" bun run start:api
+   ```
+</Accordion>
+
+<Accordion title="Slow API responses">
+**Symptom:** API endpoints timeout or respond slowly
+
+**Performance checklist:**
+
+<Steps>
+  <Step title="Check Ollama latency">
+    ```bash
+    curl http://localhost:3333/api/v1/system/ollama
+    # Check 'latency' field (should be < 100ms)
+    ```
+  </Step>
+
+  <Step title="Verify cache hit rate">
+    ```bash
+    curl -X POST http://localhost:3333/api/v1/analytics \
+      -H "Content-Type: application/json" \
+      -d '{"type": "cache"}'
+    # Target: > 60% hit rate
+    ```
+  </Step>
+
+  <Step title="Check database sizes">
+    ```bash
+    curl http://localhost:3333/api/v1/system/info
+    # Large databases (> 5GB) may slow down queries
+    ```
+  </Step>
+
+  <Step title="Monitor system resources">
+    ```bash
+    # Docker
+    docker stats th0th-api
+    
+    # Source
+    top -p $(pgrep -f th0th)
+    ```
+  </Step>
+</Steps>
+</Accordion>
+
+## Configuration Issues
+
+<Accordion title="Environment variables not applied">
+**Symptom:** Changes to `.env` file not taking effect
+
+**Solution:**
+
+1. **Restart the service** (required for changes to apply):
+   ```bash
+   docker compose restart api
+   ```
+
+2. **Verify variables are loaded**:
+   ```bash
+   docker compose exec api env | grep OLLAMA
+   ```
+
+3. **For source deployment**, ensure `.env` is in correct location:
+   ```bash
+   # .env must be at project root
+   /path/to/th0th/.env  # ✓
+   /path/to/th0th/apps/tools-api/.env  # ✗
+   ```
+</Accordion>
+
+<Accordion title="Config file ignored">
+**Symptom:** `~/.config/th0th/config.json` changes not applied
+
+**Note:**
+<Warning>
+  The config file is primarily used by the MCP client. The API uses environment variables from `.env`.
+</Warning>
+
+**For API configuration**, use `.env` file:
+```bash
+# API uses .env
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=bge-m3
+```
+
+**For MCP client**, use config file:
+```bash
+npx @th0th-ai/mcp-client --config-show
+```
+</Accordion>
+
+## Data and Database Issues
+
+<Accordion title="Database corruption">
+**Symptom:** SQLite errors, crashes, or inconsistent results
+
+**Recovery:**
+
+```bash
+# 1. Backup existing databases
+cp -r ~/.rlm ~/.rlm.backup
+
+# 2. Try to repair with SQLite
+sqlite3 ~/.rlm/vector-store.db "PRAGMA integrity_check;"
+
+# 3. If corrupted, restore from backup or recreate
+rm ~/.rlm/vector-store.db
+# Re-index projects
+
+# 4. For Docker volumes
+docker run --rm -v th0th-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/th0th-backup-$(date +%Y%m%d).tar.gz /data
+```
+</Accordion>
+
+<Accordion title="Disk space issues">
+**Symptom:** Out of disk space errors
+
+**Solutions:**
+
+1. **Check database sizes**:
+   ```bash
+   curl http://localhost:3333/api/v1/system/info
+   # Check databases.total
+   ```
+
+2. **Clear old caches**:
+   ```bash
+   rm ~/.rlm/search-cache.db
+   rm ~/.rlm/embedding-cache.db
+   ```
+
+3. **Reduce cache limits**:
+   ```bash
+   # .env
+   L1_CACHE_MAX_SIZE=26214400   # 25MB
+   L2_CACHE_MAX_SIZE=104857600  # 100MB
+   ```
+
+4. **Remove unused projects** (requires manual database cleanup or full reset)
+</Accordion>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+<Steps>
+  <Step title="Gather diagnostics">
+    ```bash
+    # Health check
+    curl http://localhost:3333/api/v1/system/health/local > health.json
+    
+    # System info
+    curl http://localhost:3333/api/v1/system/info > info.json
+    
+    # Logs
+    docker compose logs api > logs.txt
+    ```
+  </Step>
+
+  <Step title="Check existing issues">
+    Search the [GitHub issues](https://github.com/S1LV4/th0th/issues) for similar problems
+  </Step>
+
+  <Step title="Create detailed issue">
+    Include:
+    - th0th version (`docker image inspect th0th-api` or `package.json`)
+    - Deployment method (Docker/source)
+    - Operating system and version
+    - Ollama version (`ollama --version`)
+    - Error messages and logs
+    - Diagnostic outputs from Step 1
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Deployment" icon="rocket" href="/operations/deployment">
+    Review deployment configuration
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/operations/monitoring">
+    Set up monitoring and health checks
+  </Card>
+</CardGroup>

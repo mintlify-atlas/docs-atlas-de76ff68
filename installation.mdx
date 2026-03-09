@@ -1,0 +1,690 @@
+---
+title: "Installation"
+description: "Complete installation guide for th0th - local setup, Docker, and production deployment"
+---
+
+## Installation Methods
+
+th0th supports multiple installation methods to suit different environments and use cases.
+
+<CardGroup cols={3}>
+  <Card title="Local + Ollama" icon="laptop">
+    100% offline, zero cost, perfect for development
+  </Card>
+  <Card title="Docker" icon="docker">
+    Containerized deployment for production
+  </Card>
+  <Card title="From Source" icon="code">
+    Full control for customization and development
+  </Card>
+</CardGroup>
+
+## Local Setup with Ollama
+
+The recommended approach for local development with 100% offline operation.
+
+### Prerequisites
+
+<Steps>
+  <Step title="Install Bun">
+    th0th uses Bun as the package manager and runtime:
+
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+
+    Verify installation:
+    ```bash
+    bun --version  # Should be 1.2.0 or higher
+    ```
+  </Step>
+
+  <Step title="Install Node.js">
+    Ensure Node.js 18 or higher is installed:
+
+    ```bash
+    node --version  # Should be v18.0.0 or higher
+    ```
+
+    Install from [nodejs.org](https://nodejs.org) if needed.
+  </Step>
+
+  <Step title="Install Git">
+    Required for cloning the repository:
+
+    ```bash
+    git --version
+    ```
+  </Step>
+</Steps>
+
+### Automated Setup
+
+The setup script handles everything automatically:
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone <repo-url>
+    cd th0th
+    ```
+  </Step>
+
+  <Step title="Install Dependencies">
+    ```bash
+    bun install
+    ```
+
+    This installs all workspace packages:
+    - `@th0th-ai/core` - Core search and compression logic
+    - `@th0th-ai/tools-api` - REST API server
+    - `@th0th-ai/mcp-client` - MCP server for OpenCode/Claude
+    - `@th0th-ai/shared` - Shared utilities and types
+  </Step>
+
+  <Step title="Run Setup Script">
+    ```bash
+    ./scripts/setup-local-first.sh
+    ```
+
+    The script performs these actions:
+
+    <CodeGroup>
+    ```bash Step 1: Check Ollama
+    # Detects Ollama CLI or API
+    # Installs Ollama on Linux if needed
+    # Starts Ollama service if not running
+    # Supports WSL → Windows host scenarios
+    ```
+
+    ```bash Step 2: Pull Embedding Model
+    # Downloads bge-m3 model (default)
+    # Size: ~1.5GB
+    # Dimensions: 1024
+    # Alternative: nomic-embed-text (768d)
+    ```
+
+    ```bash Step 3: Create Configuration
+    # Config: ~/.config/th0th/config.json
+    # Environment: .env (project root)
+    # Data directory: ~/.rlm
+    ```
+
+    ```bash Step 4: Verify Setup
+    # Checks Ollama health
+    # Verifies model availability
+    # Tests directory permissions
+    ```
+    </CodeGroup>
+
+    <Info>
+      The script is idempotent - safe to run multiple times.
+    </Info>
+  </Step>
+
+  <Step title="Build and Start">
+    ```bash
+    bun run build
+    bun run start:api
+    ```
+
+    The API will be available at `http://localhost:3333`.
+  </Step>
+</Steps>
+
+### Manual Setup (Advanced)
+
+If you prefer manual configuration:
+
+<Steps>
+  <Step title="Install Ollama">
+    <CodeGroup>
+    ```bash Linux
+    curl -fsSL https://ollama.com/install.sh | sh
+    ollama serve &
+    ```
+
+    ```bash macOS
+    # Download from https://ollama.com/download
+    # Or use Homebrew:
+    brew install ollama
+    ollama serve &
+    ```
+
+    ```bash Windows
+    # Download from https://ollama.com/download
+    # Installer will start service automatically
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Pull Embedding Model">
+    ```bash
+    ollama pull bge-m3
+    ```
+
+    Alternative models:
+    ```bash
+    ollama pull nomic-embed-text  # 768 dimensions, smaller
+    ```
+  </Step>
+
+  <Step title="Create Configuration">
+    Create `~/.config/th0th/config.json`:
+
+    ```json
+    {
+      "embedding": {
+        "provider": "ollama",
+        "model": "bge-m3",
+        "baseURL": "http://localhost:11434",
+        "dimensions": 768
+      },
+      "compression": {
+        "enabled": true,
+        "strategy": "code_structure",
+        "targetRatio": 0.7
+      },
+      "cache": {
+        "enabled": true,
+        "l1MaxSizeMB": 100,
+        "l2MaxSizeMB": 500,
+        "defaultTTLSeconds": 3600
+      },
+      "dataDir": "~/.rlm",
+      "logging": {
+        "level": "info",
+        "enableMetrics": false
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Create Environment File">
+    Create `.env` in project root:
+
+    ```bash
+    # Ollama Configuration
+    OLLAMA_BASE_URL=http://localhost:11434
+    OLLAMA_EMBEDDING_MODEL=bge-m3
+    OLLAMA_EMBEDDING_DIMENSIONS=1024
+
+    # Database Paths (relative to project root)
+    VECTOR_DB_PATH=./data/chroma
+    CACHE_DB_PATH=./data/cache.db
+    KEYWORD_DB_PATH=./data/keyword.db
+    EMBEDDING_CACHE_DB_PATH=./data/embedding-cache.db
+
+    # Logging
+    LOG_LEVEL=info
+    ENABLE_METRICS=false
+
+    # Cache Configuration
+    L1_CACHE_MAX_SIZE=104857600  # 100MB
+    L1_CACHE_TTL=300             # 5 minutes
+    L2_CACHE_MAX_SIZE=524288000  # 500MB
+    L2_CACHE_TTL=3600            # 1 hour
+    ```
+  </Step>
+
+  <Step title="Create Data Directory">
+    ```bash
+    mkdir -p ~/.rlm
+    mkdir -p ./data
+    ```
+  </Step>
+</Steps>
+
+## Docker Installation
+
+Deploy th0th using Docker Compose for production environments.
+
+### Prerequisites
+
+- Docker 20.10 or higher
+- Docker Compose v2 or higher
+- Ollama running on host machine (or configure remote URL)
+
+### Quick Start
+
+<Steps>
+  <Step title="Clone Repository">
+    ```bash
+    git clone <repo-url>
+    cd th0th
+    ```
+  </Step>
+
+  <Step title="Configure Environment">
+    Create `.env` file or use environment variables:
+
+    ```bash
+    # API Port
+    TH0TH_API_PORT=3333
+
+    # Ollama Configuration
+    OLLAMA_BASE_URL=http://host.docker.internal:11434
+    OLLAMA_EMBEDDING_MODEL=bge-m3
+    OLLAMA_EMBEDDING_DIMENSIONS=1024
+
+    # Optional: Mistral API
+    MISTRAL_API_KEY=your-api-key
+    ```
+
+    <Note>
+      Use `host.docker.internal` to access Ollama running on the host machine.
+    </Note>
+  </Step>
+
+  <Step title="Start Services">
+    <CodeGroup>
+    ```bash API Only
+    docker compose up -d api
+    ```
+
+    ```bash API + MCP
+    docker compose up -d
+    ```
+
+    ```bash View Logs
+    docker compose logs -f
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Verify Deployment">
+    ```bash
+    curl http://localhost:3333/health
+    ```
+  </Step>
+</Steps>
+
+### Docker Compose Configuration
+
+The `docker-compose.yml` defines two services:
+
+<CodeGroup>
+```yaml API Service
+services:
+  api:
+    build:
+      context: .
+      target: api
+    container_name: th0th-api
+    restart: unless-stopped
+    ports:
+      - "${TH0TH_API_PORT:-3333}:3333"
+    volumes:
+      - th0th-data:/data
+    environment:
+      - NODE_ENV=production
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+```
+
+```yaml MCP Service
+services:
+  mcp:
+    build:
+      context: .
+      target: mcp
+    container_name: th0th-mcp
+    stdin_open: true
+    environment:
+      - NODE_ENV=production
+      - TH0TH_API_URL=http://api:3333
+    depends_on:
+      api:
+        condition: service_healthy
+```
+</CodeGroup>
+
+### Using MCP via Docker
+
+Integrate with OpenCode using Docker:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["docker", "compose", "run", "--rm", "-i", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+<Warning>
+  Ensure Docker Compose is in your PATH and accessible from your editor.
+</Warning>
+
+## From Source Installation
+
+For development or customization:
+
+<Steps>
+  <Step title="Clone and Install">
+    ```bash
+    git clone <repo-url>
+    cd th0th
+    bun install
+    ```
+  </Step>
+
+  <Step title="Run Setup">
+    ```bash
+    ./scripts/setup-local-first.sh
+    ```
+  </Step>
+
+  <Step title="Build Packages">
+    ```bash
+    bun run build
+    ```
+
+    This builds all workspace packages using Turbo:
+    - `packages/core`
+    - `packages/shared`
+    - `apps/tools-api`
+    - `apps/mcp-client`
+  </Step>
+
+  <Step title="Run Development Mode">
+    <CodeGroup>
+    ```bash API with Hot Reload
+    bun run dev:api
+    ```
+
+    ```bash MCP Client with Watch
+    bun run dev:mcp
+    ```
+
+    ```bash All Apps
+    bun run dev
+    ```
+    </CodeGroup>
+  </Step>
+</Steps>
+
+### Development Commands
+
+| Command | Description |
+|---------|-------------|
+| `bun run build` | Build all packages |
+| `bun run dev` | Development mode (all apps) |
+| `bun run dev:api` | REST API with hot reload |
+| `bun run dev:mcp` | MCP server with watch |
+| `bun run start:api` | Start REST API (production) |
+| `bun run start:mcp` | Start MCP server (production) |
+| `bun run test` | Run tests |
+| `bun run lint` | Lint code |
+| `bun run type-check` | Type checking |
+
+## Platform-Specific Notes
+
+### Windows + WSL
+
+The setup script automatically detects and handles WSL scenarios:
+
+<Steps>
+  <Step title="Ollama on Windows Host">
+    If Ollama is installed on Windows:
+
+    ```bash
+    # WSL will automatically connect to Windows Ollama
+    # No additional configuration needed
+    ```
+  </Step>
+
+  <Step title="Set OLLAMA_HOST (if needed)">
+    ```bash
+    export OLLAMA_HOST=http://$(hostname).local:11434
+    ```
+  </Step>
+</Steps>
+
+### macOS
+
+For macOS users:
+
+<Steps>
+  <Step title="Install Ollama">
+    Download from [ollama.com/download](https://ollama.com/download) or:
+
+    ```bash
+    brew install ollama
+    ```
+  </Step>
+
+  <Step title="Start Ollama Service">
+    ```bash
+    ollama serve
+    ```
+
+    Or use the macOS app to run in the background.
+  </Step>
+</Steps>
+
+### Linux
+
+On Linux, the setup script handles everything:
+
+```bash
+# Auto-installs Ollama if not present
+./scripts/setup-local-first.sh
+```
+
+Manual installation:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+## Embedding Provider Options
+
+Choose your embedding provider based on your needs:
+
+### Ollama (Default - Free)
+
+```bash
+# Already configured by setup script
+# No additional steps needed
+```
+
+**Models:**
+- `bge-m3` - 1024 dimensions, best quality
+- `nomic-embed-text` - 768 dimensions, smaller
+
+### Mistral API
+
+```bash
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key
+```
+
+**Models:**
+- `mistral-embed` - General purpose
+- `codestral-embed` - Optimized for code (coming soon)
+
+### OpenAI API
+
+```bash
+npx @th0th-ai/mcp-client --config-init --openai your-api-key
+```
+
+**Models:**
+- `text-embedding-3-small` - Cost-effective
+- `text-embedding-3-large` - Higher quality
+
+## Configuration Management
+
+### View Current Configuration
+
+```bash
+npx @th0th-ai/mcp-client --config-show
+```
+
+### View Config Paths
+
+```bash
+# Config file location
+npx @th0th-ai/mcp-client --config-path
+
+# Config directory
+npx @th0th-ai/mcp-client --config-dir
+```
+
+### Initialize Configuration
+
+```bash
+# Default (Ollama)
+npx @th0th-ai/mcp-client --config-init
+
+# With Mistral
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key
+
+# With OpenAI
+npx @th0th-ai/mcp-client --config-init --openai your-api-key
+```
+
+### Switch Providers
+
+```bash
+# Switch to Mistral
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key
+
+# Switch to Ollama with different model
+npx @th0th-ai/mcp-client --config-init --ollama-model nomic-embed-text
+```
+
+## Verification
+
+Verify your installation:
+
+<Steps>
+  <Step title="Check Ollama">
+    ```bash
+    curl http://localhost:11434/api/tags
+    ```
+
+    Should show available models including `bge-m3`.
+  </Step>
+
+  <Step title="Check API">
+    ```bash
+    curl http://localhost:3333/health
+    ```
+
+    Should return health status.
+  </Step>
+
+  <Step title="Check Configuration">
+    ```bash
+    npx @th0th-ai/mcp-client --config-show
+    ```
+
+    Should display your configuration.
+  </Step>
+
+  <Step title="View Swagger Docs">
+    Navigate to `http://localhost:3333/swagger` to see interactive API documentation.
+  </Step>
+</Steps>
+
+## Directory Structure
+
+After installation, your directory structure will look like:
+
+```
+th0th/
+├── .env                         # Environment configuration
+├── apps/
+│   ├── mcp-client/             # MCP server
+│   ├── tools-api/              # REST API
+│   └── opencode-plugin/        # OpenCode plugin
+├── packages/
+│   ├── core/                   # Core logic
+│   └── shared/                 # Utilities
+├── scripts/
+│   └── setup-local-first.sh    # Setup script
+├── data/                        # Local databases (created on first run)
+│   ├── chroma/                 # Vector store
+│   ├── cache.db               # L2 cache
+│   ├── keyword.db             # Keyword search
+│   └── embedding-cache.db     # Embedding cache
+└── docker-compose.yml          # Docker configuration
+
+~/.config/th0th/
+└── config.json                  # User configuration
+
+~/.rlm/
+└── (vector data and memories)   # Data directory
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Index your first project and start searching
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integration/opencode">
+    Connect th0th to your AI assistant
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+    Configure embedding providers and advanced settings
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operations/troubleshooting">
+    Solve common installation issues
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+### Ollama Not Found
+
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Start Ollama manually
+ollama serve
+```
+
+### Port Already in Use
+
+```bash
+# Change port in .env
+TH0TH_API_PORT=3334
+
+# Or specify at runtime
+PORT=3334 bun run start:api
+```
+
+### Permission Denied
+
+```bash
+# Make setup script executable
+chmod +x scripts/setup-local-first.sh
+
+# Fix data directory permissions
+mkdir -p ~/.rlm
+chmod 755 ~/.rlm
+```
+
+### Model Not Found
+
+```bash
+# Pull the embedding model
+ollama pull bge-m3
+
+# Verify it's available
+ollama list
+```
+
+For more help, see the [Troubleshooting guide](/operations/troubleshooting).

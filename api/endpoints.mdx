@@ -1,0 +1,1127 @@
+---
+title: 'API Endpoints'
+description: 'Complete REST API endpoint reference'
+---
+
+## Search Endpoints
+
+### Search Project
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/search/project \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "authentication logic",
+    "projectId": "my-project",
+    "maxResults": 10,
+    "minScore": 0.3
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/search/project', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: 'authentication logic',
+    projectId: 'my-project',
+    maxResults: 10,
+    minScore: 0.3
+  })
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'http://localhost:3333/api/v1/search/project',
+    json={
+        'query': 'authentication logic',
+        'projectId': 'my-project',
+        'maxResults': 10,
+        'minScore': 0.3
+    }
+)
+data = response.json()
+```
+
+</CodeGroup>
+
+**Endpoint:** `POST /api/v1/search/project`
+
+**Description:** Contextual search using hybrid vector + keyword search with RRF ranking.
+
+#### Request Body
+
+<ParamField body="query" type="string" required>
+  Search query (natural language or keywords)
+</ParamField>
+
+<ParamField body="projectId" type="string" required>
+  Project ID to search in
+</ParamField>
+
+<ParamField body="projectPath" type="string">
+  Project path for auto-reindex if needed
+</ParamField>
+
+<ParamField body="maxResults" type="number" default={10}>
+  Maximum number of results to return
+</ParamField>
+
+<ParamField body="minScore" type="number" default={0.3}>
+  Minimum relevance score (0-1)
+</ParamField>
+
+<ParamField body="responseMode" type="string" default="summary">
+  Response format: `summary` or `full`
+</ParamField>
+
+<ParamField body="autoReindex" type="boolean" default={true}>
+  Automatically reindex if project is stale
+</ParamField>
+
+<ParamField body="include" type="array">
+  Glob patterns to include (e.g., `["*.ts", "*.tsx"]`)
+</ParamField>
+
+<ParamField body="exclude" type="array">
+  Glob patterns to exclude (e.g., `["node_modules/**"]`)
+</ParamField>
+
+<ParamField body="explainScores" type="boolean" default={false}>
+  Include score explanations in response
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the search was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Search results data
+  
+  <Expandable title="properties">
+    <ResponseField name="results" type="array">
+      Array of search results with file paths, content, and relevance scores
+    </ResponseField>
+    
+    <ResponseField name="totalResults" type="number">
+      Total number of results found
+    </ResponseField>
+    
+    <ResponseField name="query" type="string">
+      The original search query
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Search Code
+
+**Endpoint:** `POST /api/v1/search/code`
+
+**Description:** Semantic code search (alias for `search/project`).
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/search/code \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "JWT token validation",
+    "projectId": "my-project",
+    "limit": 10
+  }'
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="query" type="string" required>
+  Code search query
+</ParamField>
+
+<ParamField body="projectId" type="string" required>
+  Project ID to search in
+</ParamField>
+
+<ParamField body="limit" type="number" default={10}>
+  Maximum results to return
+</ParamField>
+
+---
+
+## Memory Endpoints
+
+### Store Memory
+
+**Endpoint:** `POST /api/v1/memory/store`
+
+**Description:** Store a new memory in the hierarchical memory system (local SQLite).
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/memory/store \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "User prefers TypeScript for new features",
+    "type": "preference",
+    "importance": 0.8,
+    "tags": ["typescript", "preferences"]
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/memory/store', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    content: 'User prefers TypeScript for new features',
+    type: 'preference',
+    importance: 0.8,
+    tags: ['typescript', 'preferences']
+  })
+});
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="content" type="string" required>
+  Content to store in memory
+</ParamField>
+
+<ParamField body="type" type="string" required>
+  Type of memory: `preference`, `conversation`, `code`, `decision`, or `pattern`
+</ParamField>
+
+<ParamField body="userId" type="string">
+  User identifier for scoping memory
+</ParamField>
+
+<ParamField body="projectId" type="string">
+  Project identifier for scoping memory
+</ParamField>
+
+<ParamField body="sessionId" type="string">
+  Session identifier for scoping memory
+</ParamField>
+
+<ParamField body="agentId" type="string">
+  Agent identifier for scoping memory
+</ParamField>
+
+<ParamField body="tags" type="array">
+  Tags for categorizing the memory
+</ParamField>
+
+<ParamField body="importance" type="number" default={0.5}>
+  Importance score (0-1)
+</ParamField>
+
+<ParamField body="format" type="string" default="toon">
+  Output format: `json` or `toon`
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the memory was stored successfully
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Stored memory details
+  
+  <Expandable title="properties">
+    <ResponseField name="id" type="string">
+      Unique identifier for the stored memory
+    </ResponseField>
+    
+    <ResponseField name="content" type="string">
+      The stored content
+    </ResponseField>
+    
+    <ResponseField name="createdAt" type="string">
+      ISO 8601 timestamp of when the memory was created
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Search Memories
+
+**Endpoint:** `POST /api/v1/memory/search`
+
+**Description:** Search stored memories using semantic search across sessions.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/memory/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "typescript preferences",
+    "limit": 10,
+    "minImportance": 0.5
+  }'
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="query" type="string" required>
+  Search query (what to remember)
+</ParamField>
+
+<ParamField body="userId" type="string">
+  Filter by user ID
+</ParamField>
+
+<ParamField body="projectId" type="string">
+  Filter by project ID
+</ParamField>
+
+<ParamField body="sessionId" type="string">
+  Filter by session ID
+</ParamField>
+
+<ParamField body="agentId" type="string">
+  Filter by agent ID
+</ParamField>
+
+<ParamField body="types" type="array">
+  Filter by memory types (e.g., `["preference", "decision"]`)
+</ParamField>
+
+<ParamField body="limit" type="number" default={10}>
+  Maximum results to return
+</ParamField>
+
+<ParamField body="minImportance" type="number" default={0.3}>
+  Minimum importance score (0-1)
+</ParamField>
+
+<ParamField body="includePersistent" type="boolean" default={true}>
+  Include persistent memories
+</ParamField>
+
+<ParamField body="format" type="string" default="toon">
+  Output format: `json` or `toon`
+</ParamField>
+
+---
+
+### List Memories
+
+**Endpoint:** `POST /api/v1/memory/list`
+
+**Description:** List stored memories with optional filters (no semantic search, ordered by creation date).
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/memory/list \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "preference",
+    "limit": 50,
+    "offset": 0
+  }'
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="type" type="string">
+  Filter by memory type: `preference`, `conversation`, `code`, `decision`, or `pattern`
+</ParamField>
+
+<ParamField body="limit" type="number" default={50}>
+  Maximum number of memories to return
+</ParamField>
+
+<ParamField body="offset" type="number" default={0}>
+  Offset for pagination
+</ParamField>
+
+<ParamField body="minImportance" type="number" default={0}>
+  Minimum importance score (0-1)
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the list operation was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  List results
+  
+  <Expandable title="properties">
+    <ResponseField name="memories" type="array">
+      Array of memory objects
+    </ResponseField>
+    
+    <ResponseField name="total" type="number">
+      Total count of memories matching filters
+    </ResponseField>
+    
+    <ResponseField name="limit" type="number">
+      Applied limit
+    </ResponseField>
+    
+    <ResponseField name="offset" type="number">
+      Applied offset
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Project Endpoints
+
+### Index Project
+
+**Endpoint:** `POST /api/v1/project/index`
+
+**Description:** Start indexing a project directory in background. Returns a jobId immediately.
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/project/index \
+  -H "Content-Type: application/json" \
+  -d '{
+    "projectPath": "/home/user/my-project",
+    "projectId": "my-project",
+    "forceReindex": false,
+    "warmCache": true
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/project/index', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    projectPath: '/home/user/my-project',
+    projectId: 'my-project',
+    forceReindex: false,
+    warmCache: true
+  })
+});
+const { data } = await response.json();
+console.log('Job ID:', data.jobId);
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="projectPath" type="string" required>
+  Absolute path to the project directory to index
+</ParamField>
+
+<ParamField body="projectId" type="string">
+  Unique identifier for the project (defaults to directory name)
+</ParamField>
+
+<ParamField body="forceReindex" type="boolean" default={false}>
+  Force reindexing even if project is already indexed
+</ParamField>
+
+<ParamField body="warmCache" type="boolean" default={false}>
+  Pre-cache common queries after indexing completes
+</ParamField>
+
+<ParamField body="warmupQueries" type="array">
+  Custom queries to pre-cache (e.g., `["authentication", "API routes"]`)
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the indexing job was started
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Job information
+  
+  <Expandable title="properties">
+    <ResponseField name="jobId" type="string">
+      Unique identifier for tracking the indexing job
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Initial job status (usually `pending` or `running`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Get Index Status
+
+**Endpoint:** `GET /api/v1/project/index/status/:jobId`
+
+**Description:** Get the status and progress of an async indexing job.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/project/index/status/job-123
+```
+
+```javascript JavaScript
+const jobId = 'job-123';
+const response = await fetch(
+  `http://localhost:3333/api/v1/project/index/status/${jobId}`
+);
+const { data } = await response.json();
+console.log('Status:', data.status);
+console.log('Progress:', data.progress);
+```
+
+</CodeGroup>
+
+#### URL Parameters
+
+<ParamField path="jobId" type="string" required>
+  Job ID returned by `POST /project/index`
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the status check was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Job status details
+  
+  <Expandable title="properties">
+    <ResponseField name="jobId" type="string">
+      The job identifier
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Job status: `pending`, `running`, `completed`, or `failed`
+    </ResponseField>
+    
+    <ResponseField name="progress" type="number">
+      Indexing progress (0-100)
+    </ResponseField>
+    
+    <ResponseField name="error" type="string">
+      Error message if status is `failed`
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### List Projects
+
+**Endpoint:** `GET /api/v1/project/list`
+
+**Description:** List all indexed projects with document counts and metadata.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/project/list
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/project/list');
+const { data } = await response.json();
+console.log('Projects:', data.projects);
+```
+
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if the list operation was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Projects list
+  
+  <Expandable title="properties">
+    <ResponseField name="projects" type="array">
+      Array of indexed projects with metadata
+    </ResponseField>
+    
+    <ResponseField name="total" type="number">
+      Total number of indexed projects
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Context Endpoints
+
+### Compress Context
+
+**Endpoint:** `POST /api/v1/context/compress`
+
+**Description:** Compress context using semantic compression (keeps structure, removes details).
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/context/compress \
+  -H "Content-Type: application/json" \
+  -d '{
+    "content": "...code or text content...",
+    "strategy": "code_structure",
+    "targetRatio": 0.7,
+    "language": "typescript"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/context/compress', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    content: codeContent,
+    strategy: 'code_structure',
+    targetRatio: 0.7,
+    language: 'typescript'
+  })
+});
+const { data } = await response.json();
+console.log('Compressed:', data.compressed);
+console.log('Ratio:', data.compressionRatio);
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="content" type="string" required>
+  Content to compress
+</ParamField>
+
+<ParamField body="strategy" type="string" default="code_structure">
+  Compression strategy:
+  - `code_structure` - Extract function signatures, types, exports
+  - `conversation_summary` - Summarize conversation history
+  - `semantic_dedup` - Remove semantically duplicate content
+  - `hierarchical` - Multi-level compression
+</ParamField>
+
+<ParamField body="targetRatio" type="number" default={0.7}>
+  Target compression ratio (0-1). Lower = more aggressive compression
+</ParamField>
+
+<ParamField body="language" type="string">
+  Programming language for code compression (e.g., `typescript`, `python`, `javascript`)
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if compression was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Compression results
+  
+  <Expandable title="properties">
+    <ResponseField name="compressed" type="string">
+      The compressed content
+    </ResponseField>
+    
+    <ResponseField name="originalSize" type="number">
+      Original content size in characters
+    </ResponseField>
+    
+    <ResponseField name="compressedSize" type="number">
+      Compressed content size in characters
+    </ResponseField>
+    
+    <ResponseField name="compressionRatio" type="number">
+      Achieved compression ratio (0-1)
+    </ResponseField>
+    
+    <ResponseField name="tokenSavings" type="number">
+      Estimated tokens saved
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+### Get Optimized Context
+
+**Endpoint:** `POST /api/v1/context/optimized`
+
+**Description:** Retrieve and compress context with maximum token efficiency (search + compress in one call).
+
+<CodeGroup>
+
+```bash curl
+curl -X POST http://localhost:3333/api/v1/context/optimized \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "authentication implementation",
+    "projectId": "my-project",
+    "maxTokens": 4000,
+    "maxResults": 5
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/context/optimized', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    query: 'authentication implementation',
+    projectId: 'my-project',
+    maxTokens: 4000,
+    maxResults: 5
+  })
+});
+const { data } = await response.json();
+console.log('Context:', data.context);
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="query" type="string" required>
+  Search query to find relevant context
+</ParamField>
+
+<ParamField body="projectId" type="string" required>
+  Project ID for code context
+</ParamField>
+
+<ParamField body="projectPath" type="string">
+  Project path for auto-reindex if needed
+</ParamField>
+
+<ParamField body="maxTokens" type="number" default={4000}>
+  Maximum tokens in returned context
+</ParamField>
+
+<ParamField body="maxResults" type="number" default={5}>
+  Maximum search results to include before compression
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if context optimization was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Optimized context
+  
+  <Expandable title="properties">
+    <ResponseField name="context" type="string">
+      The optimized, compressed context ready for AI consumption
+    </ResponseField>
+    
+    <ResponseField name="tokenCount" type="number">
+      Estimated token count of returned context
+    </ResponseField>
+    
+    <ResponseField name="sources" type="array">
+      Source files included in the context
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+---
+
+## Analytics Endpoints
+
+### Get Analytics
+
+**Endpoint:** `POST /api/v1/analytics`
+
+**Description:** Get search analytics and performance metrics.
+
+<CodeGroup>
+
+```bash curl - Summary
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "summary"}'
+```
+
+```bash curl - Project Stats
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "project",
+    "projectId": "my-project"
+  }'
+```
+
+```bash curl - Cache Performance
+curl -X POST http://localhost:3333/api/v1/analytics \
+  -H "Content-Type: application/json" \
+  -d '{"type": "cache"}'
+```
+
+</CodeGroup>
+
+#### Request Body
+
+<ParamField body="type" type="string" required>
+  Type of analytics:
+  - `summary` - Overall usage summary
+  - `project` - Project-specific statistics
+  - `query` - Query performance analysis
+  - `cache` - Cache hit rates and performance
+  - `recent` - Recent search activity
+</ParamField>
+
+<ParamField body="projectId" type="string">
+  Required when `type` is `project`
+</ParamField>
+
+<ParamField body="query" type="string">
+  Required when `type` is `query`
+</ParamField>
+
+<ParamField body="limit" type="number" default={10}>
+  Maximum results for `recent` type
+</ParamField>
+
+#### Response
+
+<ResponseField name="success" type="boolean">
+  Indicates if analytics retrieval was successful
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Analytics data (structure varies by type)
+</ResponseField>
+
+---
+
+## System Endpoints
+
+### Health Check
+
+**Endpoint:** `GET /health`
+
+**Description:** Simple health check endpoint.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/health
+```
+
+</CodeGroup>
+
+#### Response
+
+```json
+{
+  "status": "ok",
+  "service": "th0th-tools-api",
+  "version": "1.0.0",
+  "timestamp": "2026-03-09T12:00:00.000Z"
+}
+```
+
+---
+
+### System Information
+
+**Endpoint:** `GET /api/v1/system/info`
+
+**Description:** Get detailed system and environment information.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/system/info
+```
+
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="version" type="string">
+  API version
+</ResponseField>
+
+<ResponseField name="service" type="string">
+  Service name
+</ResponseField>
+
+<ResponseField name="node" type="string">
+  Node.js version
+</ResponseField>
+
+<ResponseField name="platform" type="string">
+  Operating system platform
+</ResponseField>
+
+<ResponseField name="arch" type="string">
+  CPU architecture
+</ResponseField>
+
+<ResponseField name="uptime" type="number">
+  Process uptime in seconds
+</ResponseField>
+
+<ResponseField name="memory" type="object">
+  Memory usage statistics
+</ResponseField>
+
+<ResponseField name="dataDir" type="string">
+  Data directory path
+</ResponseField>
+
+<ResponseField name="databases" type="object">
+  Database sizes and total storage
+</ResponseField>
+
+---
+
+### System Status
+
+**Endpoint:** `GET /api/v1/system/status`
+
+**Description:** Check health status of all services.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/system/status
+```
+
+</CodeGroup>
+
+#### Response
+
+```json
+{
+  "status": "healthy",
+  "services": {
+    "memories": true,
+    "vectorStore": true,
+    "searchCache": true,
+    "analytics": true,
+    "keywordSearch": true,
+    "embeddingCache": true
+  },
+  "timestamp": "2026-03-09T12:00:00.000Z"
+}
+```
+
+---
+
+### System Metrics
+
+**Endpoint:** `GET /api/v1/system/metrics`
+
+**Description:** Get aggregated metrics and performance data.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/system/metrics
+```
+
+</CodeGroup>
+
+---
+
+### Local-First Health Check
+
+**Endpoint:** `GET /api/v1/system/health/local`
+
+**Description:** Comprehensive health check of all local services (Ollama, SQLite databases, data directory).
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/system/health/local
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:3333/api/v1/system/health/local');
+const health = await response.json();
+
+if (health.status === 'healthy') {
+  console.log('All services operational');
+} else {
+  console.log('Issues detected:', health.recommendations);
+}
+```
+
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="status" type="string">
+  Overall health status: `healthy`, `degraded`, or `unhealthy`
+</ResponseField>
+
+<ResponseField name="services" type="object">
+  Individual service health checks
+  
+  <Expandable title="properties">
+    <ResponseField name="ollama" type="object">
+      Ollama service status and latency
+    </ResponseField>
+    
+    <ResponseField name="databases" type="object">
+      SQLite database availability
+    </ResponseField>
+    
+    <ResponseField name="dataDirectory" type="boolean">
+      Data directory accessibility
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="recommendations" type="array">
+  Actionable recommendations for any detected issues
+</ResponseField>
+
+---
+
+### Ollama Status
+
+**Endpoint:** `GET /api/v1/system/ollama`
+
+**Description:** Check Ollama availability, list installed models, and verify embedding model configuration.
+
+<CodeGroup>
+
+```bash curl
+curl http://localhost:3333/api/v1/system/ollama
+```
+
+</CodeGroup>
+
+#### Response
+
+<ResponseField name="status" type="string">
+  Ollama service status: `healthy` or `unavailable`
+</ResponseField>
+
+<ResponseField name="models" type="array">
+  List of installed embedding models
+</ResponseField>
+
+<ResponseField name="configuredModel" type="string">
+  Currently configured embedding model
+</ResponseField>
+
+<ResponseField name="baseUrl" type="string">
+  Ollama base URL
+</ResponseField>
+
+<ResponseField name="latency" type="number">
+  Response latency in milliseconds
+</ResponseField>
+
+---
+
+## Error Responses
+
+All endpoints return errors in a consistent format:
+
+```json
+{
+  "success": false,
+  "error": "Descriptive error message"
+}
+```
+
+### Common Errors
+
+<AccordionGroup>
+  <Accordion title="Project Not Indexed">
+    **Error:** `Project 'xyz' not found. Please index it first.`
+    
+    **Solution:** Index the project using `POST /api/v1/project/index` before searching.
+  </Accordion>
+
+  <Accordion title="Ollama Not Available">
+    **Error:** `Ollama service is not available`
+    
+    **Solution:** Ensure Ollama is running (`ollama serve`) and the embedding model is installed.
+  </Accordion>
+
+  <Accordion title="Invalid Parameters">
+    **Error:** `Validation error: [field] is required`
+    
+    **Solution:** Check that all required parameters are provided in the request body.
+  </Accordion>
+
+  <Accordion title="Database Error">
+    **Error:** `Database operation failed`
+    
+    **Solution:** Check that the data directory exists and has proper permissions.
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Rate Limiting & Quotas
+
+<Info>
+No rate limiting or quotas are enforced in the default local-first deployment. Configure limits via middleware for production use.
+</Info>
+
+---
+
+## WebSocket Support
+
+<Note>
+WebSocket support for real-time indexing progress is planned for a future release. Use polling with `GET /project/index/status/:jobId` for now.
+</Note>
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="REST API Overview" icon="book" href="/api/rest-overview">
+  Learn about authentication and response formats
+</Card>
+
+<Card title="MCP Tools" icon="tools" href="/api/mcp-overview">
+  Use th0th via Model Context Protocol
+</Card>
+
+<Card title="Integration Guides" icon="plug" href="/integration/opencode">
+  Integrate with OpenCode, VSCode, or Docker
+</Card>
+
+<Card title="Configuration" icon="sliders" href="/configuration/embedding-providers">
+  Configure embedding providers and advanced settings
+</Card>
+
+</CardGroup>

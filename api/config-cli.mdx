@@ -1,0 +1,402 @@
+---
+title: "Configuration CLI"
+description: "Manage th0th configuration using the command-line interface"
+---
+
+The th0th configuration CLI (`th0th-config`) provides a simple way to manage your configuration file, switch embedding providers, and customize settings.
+
+## Installation
+
+The configuration CLI is included with the MCP client package:
+
+```bash
+npm install -g @th0th-ai/mcp-client
+```
+
+Or use directly with `npx`:
+
+```bash
+npx @th0th-ai/mcp-client --config-help
+```
+
+## Configuration File
+
+th0th stores its configuration in `~/.config/th0th/config.json`. This file is automatically created on first run with sensible defaults.
+
+<Note>
+The configuration file is shared across all th0th integrations (MCP server, REST API, CLI tools).
+</Note>
+
+## Quick Commands
+
+Use these flags with the main `th0th` command for quick configuration tasks:
+
+<CodeGroup>
+
+```bash Show Configuration
+# Display current configuration
+npx @th0th-ai/mcp-client --config-show
+
+# Example output:
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "baseURL": "http://localhost:11434",
+    "dimensions": 768
+  }
+}
+```
+
+```bash Config File Path
+# Show the path to the config file
+npx @th0th-ai/mcp-client --config-path
+
+# Output: /home/user/.config/th0th/config.json
+```
+
+```bash Config Directory
+# Show the config directory
+npx @th0th-ai/mcp-client --config-dir
+
+# Output: /home/user/.config/th0th
+```
+
+```bash Initialize Config
+# Create or reinitialize config file with defaults
+npx @th0th-ai/mcp-client --config-init
+
+# Output: ✓ Configured for Ollama (local) embeddings
+#         Config file: /home/user/.config/th0th/config.json
+```
+
+</CodeGroup>
+
+## CLI Commands
+
+The `th0th-config` binary provides advanced configuration management:
+
+### init
+
+Initialize or reinitialize the configuration file.
+
+<CodeGroup>
+
+```bash Default (Ollama)
+# Initialize with Ollama (local, free)
+th0th-config init
+
+# Output: ✓ Configured for Ollama (local) embeddings
+```
+
+```bash Mistral
+# Initialize with Mistral embeddings
+th0th-config init --mistral your-api-key
+
+# Output: ✓ Configured for Mistral embeddings
+```
+
+```bash OpenAI
+# Initialize with OpenAI embeddings
+th0th-config init --openai your-api-key
+
+# Output: ✓ Configured for OpenAI embeddings
+```
+
+</CodeGroup>
+
+<ParamField path="--ollama" type="boolean" default="true">
+  Use Ollama for local embeddings (default)
+</ParamField>
+
+<ParamField path="--mistral" type="string">
+  Use Mistral with the provided API key
+</ParamField>
+
+<ParamField path="--openai" type="string">
+  Use OpenAI with the provided API key
+</ParamField>
+
+### use
+
+Switch between embedding providers without reinitializing.
+
+<CodeGroup>
+
+```bash Ollama
+# Switch to Ollama
+th0th-config use ollama --model nomic-embed-text:latest
+
+# Output: ✓ Switched to ollama embeddings
+#         Model: nomic-embed-text:latest
+```
+
+```bash Mistral
+# Switch to Mistral
+th0th-config use mistral --api-key your-key
+
+# Output: ✓ Switched to mistral embeddings
+#         Model: mistral-embed
+```
+
+```bash OpenAI
+# Switch to OpenAI with custom model
+th0th-config use openai --api-key your-key --model text-embedding-3-large
+
+# Output: ✓ Switched to openai embeddings
+#         Model: text-embedding-3-large
+```
+
+```bash Custom Ollama URL
+# Use Ollama on a different host
+th0th-config use ollama --base-url http://192.168.1.100:11434
+
+# Output: ✓ Switched to ollama embeddings
+#         Model: nomic-embed-text:latest
+```
+
+</CodeGroup>
+
+<ParamField path="provider" type="string" required>
+  Embedding provider: `ollama`, `mistral`, or `openai`
+</ParamField>
+
+<ParamField path="--api-key" type="string">
+  API key (required for `mistral` and `openai`)
+</ParamField>
+
+<ParamField path="--model" type="string">
+  Model name (optional, uses provider defaults)
+</ParamField>
+
+<ParamField path="--base-url" type="string">
+  Base URL for Ollama (default: `http://localhost:11434`)
+</ParamField>
+
+### set
+
+Set specific configuration values using dot notation.
+
+<CodeGroup>
+
+```bash Embedding Dimensions
+# Change embedding dimensions
+th0th-config set embedding.dimensions 1024
+
+# Output: ✓ Set embedding.dimensions = 1024
+```
+
+```bash Model Name
+# Change model name
+th0th-config set embedding.model bge-m3
+
+# Output: ✓ Set embedding.model = bge-m3
+```
+
+```bash Numeric Values
+# Set numeric values (auto-detected)
+th0th-config set embedding.dimensions 768
+
+# Output: ✓ Set embedding.dimensions = 768
+```
+
+</CodeGroup>
+
+<ParamField path="key" type="string" required>
+  Configuration key in dot notation (e.g., `embedding.dimensions`)
+</ParamField>
+
+<ParamField path="value" type="string" required>
+  Value to set (auto-converts numbers)
+</ParamField>
+
+### show
+
+Display the current configuration.
+
+```bash
+th0th-config show
+```
+
+If no config file exists, shows the default configuration.
+
+### path
+
+Print the path to the configuration file.
+
+```bash
+th0th-config path
+```
+
+## Embedding Providers
+
+th0th supports three embedding providers:
+
+<CardGroup cols={3}>
+
+<Card title="Ollama" icon="laptop">
+  **Free, local, private**
+  
+  - Default: `nomic-embed-text:latest` (768d)
+  - Alternative: `bge-m3` (1024d)
+  - Requires Ollama running locally
+</Card>
+
+<Card title="Mistral" icon="cloud">
+  **API-based, cost-effective**
+  
+  - Default: `mistral-embed` (1024d)
+  - Alternative: `codestral-embed`
+  - Requires API key
+</Card>
+
+<Card title="OpenAI" icon="cloud">
+  **API-based, high quality**
+  
+  - Default: `text-embedding-3-small` (1536d)
+  - Alternative: `text-embedding-3-large`
+  - Requires API key
+</Card>
+
+</CardGroup>
+
+## Configuration Schema
+
+The configuration file follows this schema:
+
+```json
+{
+  "embedding": {
+    "provider": "ollama" | "mistral" | "openai",
+    "model": string,
+    "apiKey"?: string,           // Required for mistral/openai
+    "baseURL"?: string,          // For ollama only
+    "dimensions": number
+  }
+}
+```
+
+<Note>
+The `dimensions` field must match the output dimensions of the selected model. The CLI sets this automatically when using `init` or `use` commands.
+</Note>
+
+## Examples
+
+### Initial Setup with Ollama
+
+```bash
+# Install Ollama and pull the embedding model
+./scripts/setup-local-first.sh
+
+# Verify configuration
+npx @th0th-ai/mcp-client --config-show
+```
+
+### Switch to Cloud Provider
+
+```bash
+# Switch to Mistral for better code embeddings
+th0th-config use mistral --api-key sk-xxx --model codestral-embed
+
+# Verify the change
+th0th-config show
+```
+
+### Custom Ollama Configuration
+
+```bash
+# Use Ollama on a remote server
+th0th-config use ollama \
+  --model bge-m3 \
+  --base-url http://gpu-server.local:11434
+
+# Verify connection by indexing a project
+th0th index /path/to/project
+```
+
+### Fine-tune Settings
+
+```bash
+# Adjust embedding dimensions manually
+th0th-config set embedding.dimensions 512
+
+# Update model without changing provider
+th0th-config set embedding.model text-embedding-3-large
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+
+<Accordion title="Config file not found">
+  If you see "No config file found", run:
+  ```bash
+  th0th-config init
+  ```
+  This creates the default configuration at `~/.config/th0th/config.json`.
+</Accordion>
+
+<Accordion title="Ollama connection failed">
+  Ensure Ollama is running:
+  ```bash
+  ollama serve
+  ```
+  
+  Or update the base URL if Ollama is on a different host:
+  ```bash
+  th0th-config use ollama --base-url http://your-host:11434
+  ```
+</Accordion>
+
+<Accordion title="Invalid API key">
+  Update your API key:
+  ```bash
+  th0th-config use mistral --api-key your-new-key
+  ```
+  
+  Or use the `set` command:
+  ```bash
+  th0th-config set embedding.apiKey your-new-key
+  ```
+</Accordion>
+
+<Accordion title="Reset to defaults">
+  Reinitialize the configuration:
+  ```bash
+  th0th-config init
+  ```
+  
+  This overwrites your existing config with Ollama defaults.
+</Accordion>
+
+</AccordionGroup>
+
+## Source Reference
+
+The configuration CLI implementation can be found at:
+
+- CLI source: `apps/mcp-client/src/config-cli.ts:1`
+- Binary name: `th0th-config` (defined in `apps/mcp-client/package.json:10`)
+- Configuration utilities: `@th0th-ai/shared/config`
+
+## Related Documentation
+
+<CardGroup cols={2}>
+
+<Card title="Quick Start" icon="rocket" href="/quickstart">
+  Get started with th0th in minutes
+</Card>
+
+<Card title="REST API" icon="cloud" href="/api/rest-overview">
+  Use th0th via HTTP endpoints
+</Card>
+
+<Card title="MCP Integration" icon="plug" href="/ai-tools/cursor">
+  Integrate with AI coding assistants
+</Card>
+
+<Card title="Development Guide" icon="code" href="/installation">
+  Build and contribute to th0th
+</Card>
+
+</CardGroup>

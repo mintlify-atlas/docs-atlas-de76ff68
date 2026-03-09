@@ -1,0 +1,492 @@
+---
+title: 'Docker Integration'
+description: 'Run th0th in Docker containers for production deployments'
+---
+
+## Overview
+
+th0th provides Docker containers for both the REST API and MCP server, enabling:
+- **Isolated deployments** - Run th0th in containers
+- **Production ready** - Optimized for production use
+- **Easy scaling** - Multiple instances with Docker Compose
+- **MCP via Docker** - Use with Claude Desktop, OpenCode, and other MCP clients
+
+## Docker Compose Setup
+
+The recommended way to run th0th with Docker is using Docker Compose.
+
+### Quick Start
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone <repo-url>
+    cd th0th
+    ```
+  </Step>
+
+  <Step title="Create environment file">
+    Create a `.env` file in the project root:
+    ```bash .env
+    # API Configuration
+    TH0TH_API_PORT=3333
+    
+    # Ollama Configuration (for embeddings)
+    OLLAMA_BASE_URL=http://host.docker.internal:11434
+    OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
+    OLLAMA_EMBEDDING_DIMENSIONS=768
+    
+    # Optional: Mistral API
+    MISTRAL_API_KEY=
+    
+    # Optional: LLM Configuration
+    RLM_LLM_ENABLED=false
+    RLM_LLM_API_KEY=
+    RLM_LLM_MODEL=
+    ```
+  </Step>
+
+  <Step title="Start the services">
+    ```bash
+    # Start API only
+    docker compose up -d api
+    
+    # Or start both API and MCP
+    docker compose up -d
+    ```
+  </Step>
+
+  <Step title="Verify">
+    ```bash
+    # Check health
+    curl http://localhost:3333/health
+    
+    # View logs
+    docker compose logs -f
+    ```
+  </Step>
+</Steps>
+
+## Docker Compose Configuration
+
+The `docker-compose.yml` defines two services:
+
+```yaml docker-compose.yml
+services:
+  api:
+    build:
+      context: .
+      target: api
+    container_name: th0th-api
+    restart: unless-stopped
+    ports:
+      - "${TH0TH_API_PORT:-3333}:3333"
+    volumes:
+      - th0th-data:/data
+    environment:
+      - NODE_ENV=production
+      - TH0TH_API_PORT=3333
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OLLAMA_EMBEDDING_MODEL=${OLLAMA_EMBEDDING_MODEL:-nomic-embed-text:latest}
+      - OLLAMA_EMBEDDING_DIMENSIONS=${OLLAMA_EMBEDDING_DIMENSIONS:-768}
+      - RLM_LLM_ENABLED=${RLM_LLM_ENABLED:-false}
+      - RLM_LLM_API_KEY=${RLM_LLM_API_KEY:-}
+      - RLM_LLM_MODEL=${RLM_LLM_MODEL:-}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+
+  mcp:
+    build:
+      context: .
+      target: mcp
+    container_name: th0th-mcp
+    stdin_open: true
+    environment:
+      - NODE_ENV=production
+      - TH0TH_API_URL=http://api:3333
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  th0th-data:
+    driver: local
+```
+
+### Service Details
+
+<CardGroup cols={2}>
+  <Card title="API Service" icon="server">
+    - Runs on port 3333
+    - Persistent data in Docker volume
+    - Health checks enabled
+    - Connects to host Ollama instance
+  </Card>
+  <Card title="MCP Service" icon="plug">
+    - Stdio interface for MCP
+    - Depends on API service
+    - Used with AI assistants
+    - Waits for API health check
+  </Card>
+</CardGroup>
+
+## Using MCP with Docker
+
+To use th0th's MCP server from a Docker container with AI assistants:
+
+### OpenCode Configuration
+
+```json ~/.config/opencode/opencode.json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["docker", "compose", "run", "--rm", "-i", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+<Note>
+Ensure you run this command from the th0th project directory, or provide the full path to the docker-compose.yml file.
+</Note>
+
+### Claude Desktop Configuration
+
+```json ~/Library/Application\ Support/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "th0th": {
+      "command": "docker",
+      "args": ["compose", "-f", "/path/to/th0th/docker-compose.yml", "run", "--rm", "-i", "mcp"]
+    }
+  }
+}
+```
+
+<Warning>
+Replace `/path/to/th0th` with the actual absolute path to your th0th installation.
+</Warning>
+
+## Docker Commands
+
+### Service Management
+
+<Tabs>
+  <Tab title="Start">
+    ```bash
+    # Start API only
+    docker compose up -d api
+    
+    # Start all services (API + MCP)
+    docker compose up -d
+    
+    # Start with logs visible
+    docker compose up
+    ```
+  </Tab>
+  
+  <Tab title="Stop">
+    ```bash
+    # Stop all services
+    docker compose down
+    
+    # Stop and remove volumes
+    docker compose down -v
+    
+    # Stop specific service
+    docker compose stop api
+    ```
+  </Tab>
+  
+  <Tab title="Logs">
+    ```bash
+    # View all logs
+    docker compose logs -f
+    
+    # View API logs only
+    docker compose logs -f api
+    
+    # View last 100 lines
+    docker compose logs --tail=100 api
+    ```
+  </Tab>
+  
+  <Tab title="Restart">
+    ```bash
+    # Restart all services
+    docker compose restart
+    
+    # Restart API only
+    docker compose restart api
+    
+    # Rebuild and restart
+    docker compose up -d --build
+    ```
+  </Tab>
+</Tabs>
+
+### MCP Client Usage
+
+```bash
+# Run MCP client interactively
+docker compose run --rm -i mcp
+
+# Test MCP client
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
+  docker compose run --rm -i mcp
+
+# Use MCP client with custom API URL
+TH0TH_API_URL=http://api:3333 docker compose run --rm -i mcp
+```
+
+## Environment Variables
+
+### API Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TH0TH_API_PORT` | `3333` | Port for REST API |
+| `NODE_ENV` | `production` | Node environment |
+
+### Ollama Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Ollama server URL |
+| `OLLAMA_EMBEDDING_MODEL` | `nomic-embed-text:latest` | Embedding model |
+| `OLLAMA_EMBEDDING_DIMENSIONS` | `768` | Embedding dimensions |
+
+<Note>
+`host.docker.internal` allows the container to access Ollama running on the host machine.
+</Note>
+
+### Optional: LLM Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RLM_LLM_ENABLED` | `false` | Enable LLM features |
+| `RLM_LLM_API_KEY` | - | LLM API key |
+| `RLM_LLM_MODEL` | - | LLM model name |
+| `MISTRAL_API_KEY` | - | Mistral API key for embeddings |
+
+## Data Persistence
+
+Docker volume `th0th-data` stores:
+- Indexed project data
+- Memory/recall storage
+- Cache files
+- SQLite databases
+
+```bash
+# Inspect volume
+docker volume inspect th0th_th0th-data
+
+# Backup volume
+docker run --rm -v th0th_th0th-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/th0th-data-backup.tar.gz /data
+
+# Restore volume
+docker run --rm -v th0th_th0th-data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/th0th-data-backup.tar.gz -C /
+```
+
+## Production Deployment
+
+### Using Ollama in Docker
+
+For a fully containerized setup, run Ollama in Docker:
+
+<Steps>
+  <Step title="Start Ollama container">
+    ```bash
+    docker run -d -v ollama:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+    ```
+  </Step>
+
+  <Step title="Pull embedding model">
+    ```bash
+    docker exec ollama ollama pull nomic-embed-text:latest
+    ```
+  </Step>
+
+  <Step title="Update docker-compose.yml">
+    Change the Ollama URL to use the container:
+    ```yaml
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    ```
+    
+    Add to networks:
+    ```yaml
+    services:
+      api:
+        networks:
+          - th0th-network
+    
+    networks:
+      th0th-network:
+        external: true
+    ```
+  </Step>
+
+  <Step title="Connect networks">
+    ```bash
+    docker network create th0th-network
+    docker network connect th0th-network ollama
+    ```
+  </Step>
+</Steps>
+
+### Using External Embedding Providers
+
+For production, consider using cloud embedding providers:
+
+```bash .env
+# Use Mistral embeddings
+MISTRAL_API_KEY=your-api-key-here
+OLLAMA_BASE_URL=  # Leave empty to use Mistral
+```
+
+See [Embedding Providers](/configuration/embedding-providers) for more options.
+
+### Scaling
+
+Run multiple API instances:
+
+```yaml docker-compose.yml
+services:
+  api:
+    # ... existing config ...
+    deploy:
+      replicas: 3
+  
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "3333:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Container won't start">
+    Check logs for errors:
+    ```bash
+    docker compose logs api
+    docker compose logs mcp
+    ```
+    
+    Common issues:
+    - Port 3333 already in use: Change `TH0TH_API_PORT` in `.env`
+    - Ollama not reachable: Verify `OLLAMA_BASE_URL` is correct
+    - Build errors: Run `docker compose build --no-cache`
+  </Accordion>
+
+  <Accordion title="Can't connect to Ollama">
+    If using Ollama on the host:
+    ```bash
+    # Test from inside container
+    docker compose exec api curl http://host.docker.internal:11434/api/tags
+    ```
+    
+    If this fails:
+    - On Linux, use `--network host` or configure `host.docker.internal`
+    - On Mac/Windows, ensure Docker Desktop is running
+    - Check Ollama is running: `ollama list`
+  </Accordion>
+
+  <Accordion title="MCP client not working">
+    Test the MCP client directly:
+    ```bash
+    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
+      docker compose run --rm -i mcp
+    ```
+    
+    You should see JSON output with th0th tools. If not:
+    - Check API is healthy: `curl http://localhost:3333/health`
+    - Verify MCP service can reach API: `docker compose logs mcp`
+    - Ensure stdin is open: The `-i` flag is required
+  </Accordion>
+
+  <Accordion title="Data lost after restart">
+    Ensure you're using Docker volumes, not bind mounts:
+    ```bash
+    # Check volume exists
+    docker volume ls | grep th0th
+    
+    # Inspect volume
+    docker volume inspect th0th_th0th-data
+    ```
+    
+    Don't use `docker compose down -v` unless you want to delete data.
+  </Accordion>
+
+  <Accordion title="High memory usage">
+    Limit container resources:
+    ```yaml docker-compose.yml
+    services:
+      api:
+        deploy:
+          resources:
+            limits:
+              memory: 2G
+              cpus: '2'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Health Checks
+
+The API service includes built-in health checks:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+  interval: 30s      # Check every 30 seconds
+  timeout: 3s        # Fail if no response in 3s
+  start_period: 40s  # Wait 40s before first check
+  retries: 3         # Retry 3 times before marking unhealthy
+```
+
+Check health status:
+
+```bash
+# Via Docker
+docker compose ps
+
+# Via curl
+curl http://localhost:3333/health
+
+# Expected response
+{"status":"ok","timestamp":"2026-03-09T20:00:00.000Z"}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/rest-overview">
+    Learn about REST API endpoints
+  </Card>
+  <Card title="Deployment" icon="cloud" href="/operations/deployment">
+    Production deployment guides
+  </Card>
+  <Card title="Monitoring" icon="chart-line" href="/operations/monitoring">
+    Monitor th0th in production
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+    Configure embedding providers
+  </Card>
+</CardGroup>

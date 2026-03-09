@@ -1,0 +1,234 @@
+---
+title: "Introduction to th0th"
+description: "Learn about th0th - semantic code search with 98% token reduction for AI assistants"
+---
+
+## What is th0th?
+
+th0th is an infrastructure tool that brings semantic code search and intelligent context compression to AI assistants. Named after the ancient Egyptian god of knowledge, th0th helps AI systems understand and navigate codebases with unprecedented efficiency.
+
+<Info>
+  th0th achieves **98% token reduction** through semantic compression while preserving code structure and meaning.
+</Info>
+
+## Why th0th?
+
+Modern AI assistants face a critical challenge: context window limitations. When working with large codebases, you need to provide relevant context without overwhelming the AI with excessive tokens.
+
+th0th solves this through:
+
+<CardGroup cols={2}>
+  <Card title="Semantic Search" icon="magnifying-glass">
+    Hybrid vector + keyword search with RRF ranking finds the exact code you need
+  </Card>
+  <Card title="Smart Compression" icon="compress">
+    Rule-based compression keeps code structure while removing unnecessary details
+  </Card>
+  <Card title="Persistent Memory" icon="database">
+    SQLite-based storage remembers important context across sessions
+  </Card>
+  <Card title="Zero Cost" icon="dollar-sign">
+    100% offline operation with Ollama - no API costs
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Hybrid Search Engine
+
+th0th combines semantic understanding with traditional keyword search:
+
+- **Vector embeddings** for semantic similarity
+- **Keyword search** for exact matches
+- **RRF (Reciprocal Rank Fusion)** ranking for optimal results
+- **Multi-level caching** for instant responses
+
+```typescript
+// From: packages/core/src/data/vector/hybrid-search.ts
+// Combines vector and keyword search with RRF ranking
+const results = await hybridSearch({
+  query: "authentication middleware",
+  projectId: "my-app",
+  maxResults: 10,
+  minScore: 0.3
+});
+```
+
+### Context Compression
+
+Reduce tokens by 70-98% without losing critical information:
+
+- **Code structure extraction** - preserves signatures, removes implementation
+- **Semantic deduplication** - removes redundant content
+- **Hierarchical compression** - keeps important details, summarizes the rest
+
+```bash
+# From: README.md
+curl -X POST http://localhost:3333/api/v1/context/compress \
+  -H "Content-Type: application/json" \
+  -d '{"content": "...", "strategy": "code_structure"}'
+```
+
+### Persistent Memory System
+
+Store and recall information across AI sessions:
+
+- **Hierarchical organization** by user, project, session, and agent
+- **Semantic search** through memories
+- **Importance scoring** for prioritization
+- **Type-based filtering** (preferences, decisions, patterns, code)
+
+```bash
+# From: README.md
+curl -X POST http://localhost:3333/api/v1/memory/store \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Important decision...", "type": "decision"}'
+```
+
+## Architecture Overview
+
+th0th is built as a monorepo with three main components:
+
+```
+th0th/
+├── apps/
+│   ├── mcp-client/           # MCP Server (stdio)
+│   ├── tools-api/            # REST API (port 3333)
+│   └── opencode-plugin/      # OpenCode plugin
+├── packages/
+│   ├── core/                 # Business logic
+│   └── shared/               # Shared utilities
+└── scripts/
+```
+
+### Component Breakdown
+
+<Steps>
+  <Step title="Semantic Search">
+    Hybrid vector + keyword search with RRF ranking for precise code discovery
+  </Step>
+  <Step title="Embeddings">
+    Flexible provider system supporting Ollama (local), Mistral, and OpenAI
+  </Step>
+  <Step title="Compression">
+    Rule-based code structure extraction achieving 70-98% token reduction
+  </Step>
+  <Step title="Memory">
+    Persistent SQLite storage for cross-session context preservation
+  </Step>
+  <Step title="Cache">
+    Multi-level L1/L2 caching with TTL for optimal performance
+  </Step>
+</Steps>
+
+## How It Works
+
+<Steps>
+  <Step title="Index Your Project">
+    th0th scans your codebase, generates embeddings, and builds search indices
+    ```bash
+    curl -X POST http://localhost:3333/api/v1/project/index \
+      -H "Content-Type: application/json" \
+      -d '{"projectPath": "/home/user/my-project", "projectId": "my-project"}'
+    ```
+  </Step>
+  <Step title="Search Semantically">
+    Ask questions in natural language or use keywords to find relevant code
+    ```bash
+    curl -X POST http://localhost:3333/api/v1/search/project \
+      -H "Content-Type: application/json" \
+      -d '{"query": "authentication", "projectId": "my-project"}'
+    ```
+  </Step>
+  <Step title="Compress Context">
+    Reduce token usage while preserving essential structure and meaning
+    ```bash
+    curl -X POST http://localhost:3333/api/v1/context/compress \
+      -H "Content-Type: application/json" \
+      -d '{"content": "...", "strategy": "code_structure"}'
+    ```
+  </Step>
+  <Step title="Remember Important Info">
+    Store decisions, patterns, and context for future sessions
+    ```bash
+    curl -X POST http://localhost:3333/api/v1/memory/store \
+      -H "Content-Type: application/json" \
+      -d '{"content": "User prefers TypeScript", "type": "preference"}'
+    ```
+  </Step>
+</Steps>
+
+## Use Cases
+
+### Code Discovery
+
+Find relevant code across large codebases using natural language:
+
+- "Where is authentication handled?"
+- "Show me database migration logic"
+- "Find API route handlers"
+
+### Context Optimization
+
+Provide AI assistants with precise context while minimizing tokens:
+
+- Compress large files to their essential structure
+- Filter search results to specific patterns
+- Combine search + compression in one call
+
+### Session Continuity
+
+Maintain context across multiple AI sessions:
+
+- Remember user preferences and coding style
+- Recall architectural decisions
+- Track important patterns and conventions
+
+## Embedding Providers
+
+th0th supports multiple embedding providers to fit your needs:
+
+| Provider | Model | Cost | Quality |
+|----------|-------|------|----------|
+| **Ollama** (default) | nomic-embed-text, bge-m3 | Free | Good |
+| **Mistral** | mistral-embed, codestral-embed | $$ | Great |
+| **OpenAI** | text-embedding-3-small | $$ | Great |
+
+<Note>
+  The default Ollama setup is **100% offline** with **zero API costs**.
+</Note>
+
+## Available Tools
+
+th0th exposes 7 core tools through the MCP interface:
+
+| Tool | Description |
+|------|-------------|
+| `th0th_index` | Index a project directory for semantic search |
+| `th0th_search` | Semantic + keyword search with filters |
+| `th0th_remember` | Store important information in persistent memory |
+| `th0th_recall` | Search stored memories from previous sessions |
+| `th0th_compress` | Compress context (keeps structure, removes details) |
+| `th0th_optimized_context` | Search + compress in one call (max efficiency) |
+| `th0th_analytics` | Usage patterns, cache performance, metrics |
+
+<Tip>
+  All tools are available via both REST API and MCP protocol.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Get th0th running in under 5 minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation instructions for all platforms
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integration/opencode">
+    Connect th0th to your AI assistant
+  </Card>
+  <Card title="REST API" icon="server" href="/api/rest-overview">
+    Explore the HTTP API endpoints
+  </Card>
+</CardGroup>

@@ -1,0 +1,198 @@
+---
+title: "MCP Tools Overview"
+description: "Model Context Protocol integration for semantic code search"
+icon: "plug"
+---
+
+th0th exposes 7 MCP tools for AI assistants like OpenCode, Claude Desktop, and VSCode extensions. These tools enable semantic code search, persistent memory, context compression, and analytics with 98% token reduction.
+
+## What is MCP?
+
+Model Context Protocol (MCP) is a standard protocol for connecting AI assistants to external tools and data sources. th0th implements MCP to provide semantic search capabilities directly within your AI coding assistant.
+
+## Available Tools
+
+<CardGroup cols={2}>
+  <Card title="th0th_index" icon="folder-tree" href="#th0th_index">
+    Index a project directory for semantic search
+  </Card>
+  <Card title="th0th_search" icon="magnifying-glass" href="#th0th_search">
+    Semantic + keyword search with filters
+  </Card>
+  <Card title="th0th_remember" icon="brain" href="#th0th_remember">
+    Store information in persistent memory
+  </Card>
+  <Card title="th0th_recall" icon="clock-rotate-left" href="#th0th_recall">
+    Search stored memories from previous sessions
+  </Card>
+  <Card title="th0th_compress" icon="compress" href="#th0th_compress">
+    Compress context (keeps structure, removes details)
+  </Card>
+  <Card title="th0th_optimized_context" icon="gauge-high" href="#th0th_optimized_context">
+    Search + compress in one call (max token efficiency)
+  </Card>
+  <Card title="th0th_analytics" icon="chart-line" href="#th0th_analytics">
+    Usage patterns, cache performance, metrics
+  </Card>
+</CardGroup>
+
+## Architecture
+
+th0th MCP client connects to the th0th REST API via stdio:
+
+```
+AI Assistant (OpenCode/Claude)
+       ↓ stdio (MCP protocol)
+th0th MCP Client
+       ↓ HTTP
+th0th REST API (port 3333)
+       ↓
+Semantic Search Engine
+```
+
+### How it works
+
+1. **MCP Client**: Runs as a stdio server, exposing tools to the AI assistant
+2. **API Proxy**: Proxies tool calls to the REST API via HTTP
+3. **REST API**: Handles business logic, embeddings, search, and compression
+4. **Response Formatting**: Returns results in TOON format (70% smaller than JSON)
+
+## Integration
+
+### OpenCode (recommended)
+
+**Via MCP package:**
+
+```json opencode.json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+**Via Plugin:**
+
+```json opencode.json
+{
+  "plugin": ["@th0th-ai/opencode-plugin"]
+}
+```
+
+### VSCode / Antigravity
+
+Create `.vscode/mcp.json` in your workspace:
+
+```json .vscode/mcp.json
+{
+  "servers": {
+    "th0th": {
+      "command": "bunx",
+      "args": ["@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
+```
+
+Or run the setup script:
+
+```bash
+./scripts/setup-vscode.sh
+```
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "command": "bunx",
+      "args": ["@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
+```
+
+### Docker
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["docker", "compose", "run", "--rm", "-i", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+## Configuration
+
+Configuration file: `~/.config/th0th/config.json` (auto-created on first run)
+
+### Quick config commands
+
+```bash
+# Show current configuration
+npx @th0th-ai/mcp-client --config-show
+
+# Show config file path
+npx @th0th-ai/mcp-client --config-path
+
+# Initialize configuration
+npx @th0th-ai/mcp-client --config-init
+
+# Show help
+npx @th0th-ai/mcp-client --help
+```
+
+### Embedding providers
+
+| Provider | Model | Cost | Quality |
+|----------|-------|------|------|
+| **Ollama** (default) | nomic-embed-text, bge-m3 | Free | Good |
+| **Mistral** | mistral-embed, codestral-embed | $$ | Great |
+| **OpenAI** | text-embedding-3-small | $$ | Great |
+
+### Advanced configuration
+
+```bash
+# Initialize with specific provider
+npx @th0th-ai/mcp-client --config-init                          # Ollama (default)
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key   # Mistral
+npx @th0th-ai/mcp-client --config-init --openai your-api-key    # OpenAI
+
+# Switch provider
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key
+npx @th0th-ai/mcp-client --config-init --ollama-model bge-m3
+
+# Set specific configuration values
+npx @th0th-ai/mcp-client --config-set embedding.dimensions 1024
+```
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Tools Reference" icon="book" href="/api/tools-reference">
+    Detailed documentation for all 7 MCP tools
+  </Card>
+  <Card title="REST API" icon="code" href="/api/rest-overview">
+    HTTP API documentation
+  </Card>
+</CardGroup>

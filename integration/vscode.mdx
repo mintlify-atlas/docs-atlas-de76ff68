@@ -1,0 +1,395 @@
+---
+title: 'VSCode Integration'
+description: 'Setup th0th with VSCode Copilot and Antigravity'
+---
+
+## Overview
+
+th0th integrates with VSCode through the Model Context Protocol (MCP), providing semantic search, memory, and context compression to:
+- **VSCode Copilot** - GitHub's AI pair programmer
+- **Antigravity** - Alternative AI coding assistant for VSCode
+
+## Quick Setup
+
+The fastest way to configure th0th for VSCode is using the setup script:
+
+```bash
+cd th0th
+./scripts/setup-vscode.sh
+```
+
+This script will:
+1. Check prerequisites (Bun, Ollama)
+2. Start the th0th API if not running
+3. Create `.vscode/mcp.json` in your workspace
+4. Test the MCP server connection
+5. Generate example configurations
+
+<Note>
+The setup script creates both workspace-level (`.vscode/mcp.json`) and user-level (`~/.config/th0th/mcp.json.example`) configurations.
+</Note>
+
+## Manual Setup
+
+If you prefer to configure manually, follow these steps:
+
+<Steps>
+  <Step title="Start th0th API">
+    Ensure the th0th API server is running:
+    ```bash
+    cd th0th
+    bun run start:api
+    ```
+    Verify: `curl http://localhost:3333/health`
+  </Step>
+
+  <Step title="Create MCP configuration">
+    Create `.vscode/mcp.json` in your workspace root:
+    ```json .vscode/mcp.json
+    {
+      "servers": {
+        "th0th": {
+          "command": "bunx",
+          "args": ["@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          }
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Reload VSCode">
+    Restart VSCode to load the MCP configuration:
+    - Press `Cmd+Shift+P` (Mac) or `Ctrl+Shift+P` (Windows/Linux)
+    - Select **"Developer: Reload Window"**
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### Using npx Instead of bunx
+
+If you don't have Bun installed, use npx:
+
+```json .vscode/mcp.json
+{
+  "servers": {
+    "th0th": {
+      "command": "npx",
+      "args": ["@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
+```
+
+### Custom API URL
+
+If your th0th API runs on a different host or port:
+
+```json .vscode/mcp.json
+{
+  "servers": {
+    "th0th": {
+      "command": "bunx",
+      "args": ["@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://192.168.1.100:3333"
+      }
+    }
+  }
+}
+```
+
+### Development Mode
+
+To run th0th from source for development:
+
+```json .vscode/mcp.json
+{
+  "servers": {
+    "th0th": {
+      "command": "bun",
+      "args": ["run", "/absolute/path/to/th0th/apps/mcp-client/src/index.ts"]
+    }
+  }
+}
+```
+
+<Warning>
+Always use absolute paths when running from source. Relative paths may not resolve correctly.
+</Warning>
+
+## Workspace vs User Configuration
+
+<Tabs>
+  <Tab title="Workspace Config">
+    Configure th0th for a specific project:
+    
+    **Location:** `.vscode/mcp.json` in your project root
+    
+    **Use when:**
+    - The project has specific th0th requirements
+    - You want to commit the configuration to version control
+    - Different projects use different th0th instances
+    
+    ```json .vscode/mcp.json
+    {
+      "servers": {
+        "th0th": {
+          "command": "bunx",
+          "args": ["@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="User Config">
+    Configure th0th globally for all VSCode workspaces:
+    
+    **Location:** VSCode settings.json or Antigravity settings
+    
+    **Use when:**
+    - You want th0th available in all projects
+    - You use a single th0th instance for all work
+    - You prefer centralized configuration
+    
+    <Note>
+    User-level MCP configuration support varies by VSCode extension. Check your AI assistant's documentation.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Using with VSCode Copilot
+
+Once configured, th0th tools are available in GitHub Copilot Chat:
+
+<Steps>
+  <Step title="Open Copilot Chat">
+    Click the Copilot icon in the activity bar or press:
+    - `Cmd+Shift+I` (Mac)
+    - `Ctrl+Shift+I` (Windows/Linux)
+  </Step>
+
+  <Step title="Verify tools are loaded">
+    In the chat, type:
+    ```
+    List all available MCP tools
+    ```
+    You should see th0th tools listed.
+  </Step>
+
+  <Step title="Use th0th tools">
+    Example prompts:
+    ```
+    Index this project with th0th
+    ```
+    ```
+    Use th0th to search for authentication code
+    ```
+    ```
+    Remember this decision: We're using JWT for auth
+    ```
+  </Step>
+</Steps>
+
+## Using with Antigravity
+
+Antigravity follows the same MCP configuration:
+
+<Steps>
+  <Step title="Install Antigravity">
+    Install the Antigravity extension from the VSCode marketplace
+  </Step>
+
+  <Step title="Configure MCP">
+    Use the same `.vscode/mcp.json` configuration
+  </Step>
+
+  <Step title="Reload and test">
+    Restart VSCode and open Antigravity chat to verify th0th tools are available
+  </Step>
+</Steps>
+
+## Setup Script Details
+
+The `setup-vscode.sh` script automates the entire setup process:
+
+```bash
+#!/bin/bash
+# Location: ./scripts/setup-vscode.sh
+
+# What it does:
+# 1. Checks for bun/bunx/npx
+# 2. Verifies Ollama is running
+# 3. Starts th0th API if needed
+# 4. Creates .vscode/mcp.json
+# 5. Creates example config in ~/.config/th0th/
+# 6. Tests MCP server connection
+```
+
+### Script Output
+
+Successful setup looks like this:
+
+```bash
+╔═══════════════════════════════════════════════════════════════╗
+║             th0th - VSCode/Antigravity Setup                 ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[1/5] Checking prerequisites...
+  ✓ bun: 1.0.0
+  ✓ bunx: 1.0.0
+
+[2/5] Checking Ollama...
+  ✓ Ollama: healthy at http://localhost:11434 (v0.1.0)
+
+[3/5] Checking th0th API...
+  ✓ API: healthy at http://localhost:3333
+
+[4/5] Configuring VSCode/Antigravity...
+  ✓ Created: .vscode/mcp.json
+  ✓ Created example: ~/.config/th0th/mcp.json.example
+
+[5/5] Testing MCP server...
+  ✓ MCP server: OK (7 tools discovered)
+
+╔═══════════════════════════════════════════════════════════════╗
+║                    Setup Complete                             ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+## Verification
+
+<Steps>
+  <Step title="Check MCP output">
+    In VSCode, open the Output panel:
+    - Press `Cmd+Shift+U` (Mac) or `Ctrl+Shift+U` (Windows/Linux)
+    - Select **"MCP"** from the dropdown
+    - Look for th0th connection messages
+  </Step>
+
+  <Step title="Test tool listing">
+    In Copilot Chat:
+    ```
+    List all th0th tools
+    ```
+  </Step>
+
+  <Step title="Test indexing">
+    ```
+    Use th0th_index to index this workspace
+    ```
+  </Step>
+
+  <Step title="Test search">
+    ```
+    Use th0th_search to find error handling code
+    ```
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Tools not appearing in Copilot">
+    1. Check VSCode Output → MCP for error messages
+    2. Verify th0th API is running: `curl http://localhost:3333/health`
+    3. Reload VSCode window: `Cmd+Shift+P` → "Developer: Reload Window"
+    4. Check `.vscode/mcp.json` syntax is valid JSON
+  </Accordion>
+
+  <Accordion title="Command not found: bunx">
+    Install Bun or switch to npx:
+    ```bash
+    # Install Bun
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Or update .vscode/mcp.json to use npx
+    "command": "npx"
+    ```
+  </Accordion>
+
+  <Accordion title="API connection refused">
+    The API may not be running or using a different port:
+    ```bash
+    # Check if running
+    lsof -i :3333
+    
+    # Start API
+    cd th0th && bun run start:api
+    
+    # Check logs
+    tail -f /tmp/th0th-api.log
+    ```
+  </Accordion>
+
+  <Accordion title="Permission denied errors">
+    Ensure the MCP client package has execute permissions:
+    ```bash
+    # For global install
+    npm install -g @th0th-ai/mcp-client
+    
+    # Or use bunx/npx which handle permissions automatically
+    ```
+  </Accordion>
+
+  <Accordion title="MCP server crashes">
+    Check the VSCode Output → MCP for stack traces, then:
+    1. Verify your Node/Bun version is compatible
+    2. Try running the MCP client directly: `bunx @th0th-ai/mcp-client --help`
+    3. Check for conflicting MCP servers in `.vscode/mcp.json`
+  </Accordion>
+</AccordionGroup>
+
+## API Management
+
+Useful commands for managing the th0th API:
+
+```bash
+# Check if API is running
+lsof -i :3333
+
+# Stop API
+kill $(lsof -t -i:3333)
+
+# Start API (development mode with hot reload)
+bun run dev:api
+
+# Start API (production mode)
+bun run start:api
+
+# View API logs (if started with setup script)
+tail -f /tmp/th0th-api.log
+
+# Check API health
+curl http://localhost:3333/health
+
+# View API documentation
+open http://localhost:3333/swagger
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Tools Reference" icon="book" href="/api/tools-reference">
+    Learn about all available th0th MCP tools
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+    Configure embedding providers and models
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integration/opencode">
+    Use th0th with OpenCode for better performance
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/integration/docker">
+    Run th0th in Docker containers
+  </Card>
+</CardGroup>

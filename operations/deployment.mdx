@@ -1,0 +1,360 @@
+---
+title: 'Deployment'
+description: 'Deploy th0th to production using Docker or from source'
+icon: 'rocket'
+---
+
+## Overview
+
+th0th can be deployed in multiple ways depending on your infrastructure needs. The system is designed for local-first operation with zero external dependencies when using Ollama for embeddings.
+
+## Quick Start with Docker
+
+The recommended deployment method uses Docker Compose for both the API and MCP services.
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/S1LV4/th0th.git
+    cd th0th
+    ```
+  </Step>
+
+  <Step title="Set up environment variables">
+    Create a `.env` file in the project root:
+
+    ```bash
+    # Ollama Configuration (Local)
+    OLLAMA_BASE_URL=http://host.docker.internal:11434
+    OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
+    OLLAMA_EMBEDDING_DIMENSIONS=768
+
+    # Optional: API Configuration
+    TH0TH_API_PORT=3333
+    NODE_ENV=production
+
+    # Optional: Cloud Embedding Providers
+    MISTRAL_API_KEY=
+    RLM_LLM_API_KEY=
+    RLM_LLM_MODEL=
+    RLM_LLM_ENABLED=false
+    ```
+
+    <Note>
+      The default configuration uses Ollama running on your host machine. Docker containers access it via `host.docker.internal:11434`.
+    </Note>
+  </Step>
+
+  <Step title="Pull embedding models">
+    Before starting the containers, ensure your embedding model is available:
+
+    ```bash
+    # On your host machine
+    ollama pull nomic-embed-text:latest
+    # Or use the alternative model
+    ollama pull bge-m3
+    ```
+  </Step>
+
+  <Step title="Start the services">
+    ```bash
+    # Start API only
+    docker compose up -d api
+
+    # Or start both API and MCP
+    docker compose up -d
+    ```
+  </Step>
+
+  <Step title="Verify deployment">
+    ```bash
+    # Check health
+    curl http://localhost:3333/health
+
+    # Expected response:
+    # {
+    #   "status": "ok",
+    #   "service": "th0th-tools-api",
+    #   "version": "1.0.0",
+    #   "timestamp": "2026-03-09T..."
+    # }
+    ```
+  </Step>
+</Steps>
+
+## Docker Compose Services
+
+The `docker-compose.yml` defines two services:
+
+### API Service
+
+```yaml
+api:
+  build:
+    context: .
+    target: api
+  container_name: th0th-api
+  restart: unless-stopped
+  ports:
+    - "${TH0TH_API_PORT:-3333}:3333"
+  volumes:
+    - th0th-data:/data
+  environment:
+    - NODE_ENV=production
+    - TH0TH_API_PORT=3333
+    - OLLAMA_BASE_URL=${OLLAMA_BASE_URL}
+  healthcheck:
+    test: ["CMD", "curl", "-sf", "http://localhost:3333/health"]
+    interval: 30s
+    timeout: 3s
+    start_period: 40s
+    retries: 3
+```
+
+**Key features:**
+- Exposes port 3333 (configurable via `TH0TH_API_PORT`)
+- Persistent data stored in Docker volume `th0th-data`
+- Automatic health checks every 30 seconds
+- Restarts automatically unless manually stopped
+
+### MCP Service
+
+```yaml
+mcp:
+  build:
+    context: .
+    target: mcp
+  container_name: th0th-mcp
+  stdin_open: true
+  environment:
+    - NODE_ENV=production
+    - TH0TH_API_URL=http://api:3333
+  depends_on:
+    api:
+      condition: service_healthy
+```
+
+**Key features:**
+- Stdio transport for MCP protocol
+- Depends on healthy API service
+- Connects to API via Docker internal network
+
+## Deployment from Source
+
+For development or custom deployments:
+
+<Steps>
+  <Step title="Install dependencies">
+    ```bash
+    bun install
+    ```
+
+    <Note>
+      th0th uses Bun as its runtime. Install from [bun.sh](https://bun.sh) if needed.
+    </Note>
+  </Step>
+
+  <Step title="Run the setup script">
+    ```bash
+    ./scripts/setup-local-first.sh
+    ```
+
+    This script will:
+    - Install/start Ollama if needed
+    - Pull the embedding model (`bge-m3` by default)
+    - Create `~/.config/th0th/config.json`
+    - Create a `.env` file with defaults
+  </Step>
+
+  <Step title="Build the project">
+    ```bash
+    bun run build
+    ```
+  </Step>
+
+  <Step title="Start the API">
+    ```bash
+    # Development mode (with hot reload)
+    bun run dev:api
+
+    # Production mode
+    bun run start:api
+    ```
+  </Step>
+</Steps>
+
+## Environment Variables Reference
+
+### Core Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TH0TH_API_PORT` | `3333` | API server port |
+| `NODE_ENV` | `production` | Runtime environment |
+| `LOG_LEVEL` | `info` | Logging verbosity |
+| `ENABLE_METRICS` | `false` | Enable metrics collection |
+
+### Embedding Providers
+
+<CodeGroup>
+```bash Ollama (Default)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text:latest
+OLLAMA_EMBEDDING_DIMENSIONS=768
+```
+
+```bash Mistral
+MISTRAL_API_KEY=your-api-key
+MISTRAL_TEXT_EMBEDDING_MODEL=mistral-embed
+MISTRAL_CODE_EMBEDDING_MODEL=codestral-embed
+```
+
+```bash RLM (Custom LLM)
+RLM_LLM_ENABLED=true
+RLM_LLM_API_KEY=your-api-key
+RLM_LLM_MODEL=your-model
+```
+</CodeGroup>
+
+### Database Paths
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VECTOR_DB_PATH` | `./data/chroma` | Vector database location |
+| `CACHE_DB_PATH` | `./data/cache.db` | Cache database |
+| `KEYWORD_DB_PATH` | `./data/keyword.db` | Keyword search index |
+| `EMBEDDING_CACHE_DB_PATH` | `./data/embedding-cache.db` | Embedding cache |
+
+### Cache Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `L1_CACHE_MAX_SIZE` | `104857600` | L1 cache max size (100MB) |
+| `L1_CACHE_TTL` | `300` | L1 TTL in seconds (5 min) |
+| `L2_CACHE_MAX_SIZE` | `524288000` | L2 cache max size (500MB) |
+| `L2_CACHE_TTL` | `3600` | L2 TTL in seconds (1 hour) |
+
+## Production Considerations
+
+### Resource Requirements
+
+<Card title="Minimum Requirements" icon="server">
+  - **CPU:** 2 cores
+  - **Memory:** 4GB RAM (8GB recommended with Ollama)
+  - **Storage:** 10GB for databases and models
+  - **Network:** Port 3333 accessible
+</Card>
+
+### Data Persistence
+
+<Warning>
+  When using Docker, ensure the `th0th-data` volume is backed up regularly. All indexed projects, memories, and caches are stored here.
+</Warning>
+
+Inspect the volume location:
+
+```bash
+docker volume inspect th0th-data
+```
+
+Backup the volume:
+
+```bash
+# Create a backup
+docker run --rm -v th0th-data:/data -v $(pwd):/backup \
+  alpine tar czf /backup/th0th-data-backup.tar.gz /data
+
+# Restore from backup
+docker run --rm -v th0th-data:/data -v $(pwd):/backup \
+  alpine tar xzf /backup/th0th-data-backup.tar.gz -C /
+```
+
+### Scaling Considerations
+
+1. **Ollama Server**: For high-load deployments, run Ollama on a dedicated machine with GPU support
+2. **API Instances**: The API is stateless and can be load-balanced across multiple instances
+3. **Data Volume**: Use network-attached storage (NFS, EBS) for shared data access
+
+### Security
+
+<Note>
+  The current version does not include built-in authentication. Deploy behind a reverse proxy (nginx, Traefik) with authentication for production use.
+</Note>
+
+Example nginx configuration:
+
+```nginx
+server {
+  listen 80;
+  server_name th0th.example.com;
+
+  location / {
+    proxy_pass http://localhost:3333;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+
+    # Optional: Basic auth
+    auth_basic "th0th API";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+  }
+}
+```
+
+## Container Management
+
+### View Logs
+
+```bash
+# Follow all logs
+docker compose logs -f
+
+# API logs only
+docker compose logs -f api
+
+# Last 100 lines
+docker compose logs --tail=100 api
+```
+
+### Restart Services
+
+```bash
+# Restart all
+docker compose restart
+
+# Restart API only
+docker compose restart api
+```
+
+### Update to Latest Version
+
+```bash
+# Pull latest code
+git pull origin main
+
+# Rebuild containers
+docker compose build
+
+# Restart with new images
+docker compose up -d
+```
+
+### Clean Up
+
+```bash
+# Stop and remove containers
+docker compose down
+
+# Remove containers and volumes (DELETES ALL DATA)
+docker compose down -v
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monitoring" icon="chart-line" href="/operations/monitoring">
+    Set up health checks and monitoring
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/operations/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

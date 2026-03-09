@@ -1,0 +1,707 @@
+---
+title: "MCP Tools Reference"
+description: "Complete reference for all th0th MCP tools"
+icon: "book"
+---
+
+Detailed documentation for all 7 MCP tools exposed by th0th. Each tool includes parameter schemas, usage examples, and response formats.
+
+## th0th_index
+
+Index a project directory for semantic search with embeddings.
+
+<Note>
+Indexing runs asynchronously in the background. Use `th0th_index_status` to check progress.
+</Note>
+
+### Parameters
+
+<ParamField path="projectPath" type="string" required>
+  Absolute path to the project directory to index
+</ParamField>
+
+<ParamField path="projectId" type="string">
+  Unique identifier for the project (defaults to directory name)
+</ParamField>
+
+<ParamField path="forceReindex" type="boolean" default={false}>
+  Force reindex even if project already exists
+</ParamField>
+
+<ParamField path="warmCache" type="boolean" default={false}>
+  Pre-cache common queries after indexing for faster initial searches
+</ParamField>
+
+<ParamField path="warmupQueries" type="array">
+  Custom queries to pre-cache (uses defaults if not provided)
+</ParamField>
+
+### Response
+
+<ResponseField name="jobId" type="string">
+  Job ID for tracking indexing progress
+</ResponseField>
+
+<ResponseField name="projectId" type="string">
+  Project identifier
+</ResponseField>
+
+<ResponseField name="projectPath" type="string">
+  Path to the indexed project
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current status: `started`, `running`, `completed`, or `failed`
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Status message with instructions
+</ResponseField>
+
+### Example usage
+
+```typescript
+await th0th_index({
+  projectPath: "/home/user/my-project",
+  projectId: "my-project",
+  forceReindex: false,
+  warmCache: true
+});
+
+// Response:
+// {
+//   "jobId": "job_abc123",
+//   "projectId": "my-project",
+//   "projectPath": "/home/user/my-project",
+//   "status": "started",
+//   "message": "Indexing started in background. Use th0th_get_index_status(jobId) to check progress."
+// }
+```
+
+---
+
+## th0th_search
+
+Search for code using semantic and keyword search with RRF (Reciprocal Rank Fusion) ranking.
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  Search query (natural language or keywords)
+</ParamField>
+
+<ParamField path="projectId" type="string" required>
+  Project ID to search in
+</ParamField>
+
+<ParamField path="projectPath" type="string">
+  Project path (required for autoReindex)
+</ParamField>
+
+<ParamField path="maxResults" type="number" default={10}>
+  Maximum number of results to return
+</ParamField>
+
+<ParamField path="minScore" type="number" default={0.3}>
+  Minimum relevance score (0-1)
+</ParamField>
+
+<ParamField path="responseMode" type="string" default="summary">
+  Response format: `summary` (preview only, saves 70% tokens) or `full` (includes content)
+</ParamField>
+
+<ParamField path="autoReindex" type="boolean" default={false}>
+  Automatically reindex if project index is stale (can increase latency)
+</ParamField>
+
+<ParamField path="include" type="array">
+  Glob patterns to include (e.g., `['src/components/**/*.tsx', 'src/utils/**']`)
+</ParamField>
+
+<ParamField path="exclude" type="array">
+  Glob patterns to exclude (e.g., `['**/*.test.*', '**/*.spec.*']`)
+</ParamField>
+
+<ParamField path="explainScores" type="boolean" default={false}>
+  Include detailed score breakdown (vector, keyword, RRF components)
+</ParamField>
+
+### Response
+
+<ResponseField name="results" type="array">
+  Array of search results with file paths, content, and scores
+</ResponseField>
+
+<ResponseField name="query" type="string">
+  Original search query
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total number of results found
+</ResponseField>
+
+<ResponseField name="cacheHit" type="boolean">
+  Whether results were served from cache
+</ResponseField>
+
+### Example usage
+
+```typescript
+await th0th_search({
+  query: "authentication middleware",
+  projectId: "my-project",
+  maxResults: 5,
+  responseMode: "summary",
+  include: ["src/**/*.ts"],
+  exclude: ["**/*.test.ts"]
+});
+
+// Returns:
+// - Top 5 results matching "authentication middleware"
+// - Summary mode (no full content, saves 70% tokens)
+// - Only TypeScript files in src/
+// - Excludes test files
+```
+
+---
+
+## th0th_remember
+
+Store information in the hierarchical memory system backed by SQLite.
+
+### Parameters
+
+<ParamField path="content" type="string" required>
+  Content to store
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  Type of memory: `preference`, `conversation`, `code`, `decision`, or `pattern`
+</ParamField>
+
+<ParamField path="userId" type="string">
+  User ID for filtering memories
+</ParamField>
+
+<ParamField path="projectId" type="string">
+  Project ID for project-specific memories
+</ParamField>
+
+<ParamField path="sessionId" type="string">
+  Session ID for session-specific memories
+</ParamField>
+
+<ParamField path="agentId" type="string">
+  Agent ID (e.g., `orchestrator`, `implementer`, `architect`, `optimizer`)
+</ParamField>
+
+<ParamField path="tags" type="array">
+  Tags for categorization
+</ParamField>
+
+<ParamField path="importance" type="number" default={0.5}>
+  Importance score (0-1)
+</ParamField>
+
+<ParamField path="format" type="string" default="toon">
+  Output format: `json` or `toon`
+</ParamField>
+
+### Response
+
+<ResponseField name="id" type="string">
+  Unique memory ID
+</ResponseField>
+
+<ResponseField name="content" type="string">
+  Stored content
+</ResponseField>
+
+<ResponseField name="type" type="string">
+  Memory type
+</ResponseField>
+
+<ResponseField name="createdAt" type="string">
+  Timestamp when memory was created
+</ResponseField>
+
+### Example usage
+
+```typescript
+await th0th_remember({
+  content: "User prefers TypeScript over JavaScript for new components",
+  type: "preference",
+  userId: "user_123",
+  projectId: "my-project",
+  importance: 0.8,
+  tags: ["typescript", "preferences"],
+  format: "toon"
+});
+
+// Stores preference in SQLite
+// Returns memory ID and metadata in TOON format
+```
+
+---
+
+## th0th_recall
+
+Search stored memories across sessions using semantic search.
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  Search query (what to remember)
+</ParamField>
+
+<ParamField path="userId" type="string">
+  Filter by user ID
+</ParamField>
+
+<ParamField path="projectId" type="string">
+  Filter by project ID
+</ParamField>
+
+<ParamField path="sessionId" type="string">
+  Filter by session ID
+</ParamField>
+
+<ParamField path="agentId" type="string">
+  Filter by agent ID (`orchestrator`, `implementer`, `architect`, `optimizer`)
+</ParamField>
+
+<ParamField path="types" type="array">
+  Filter by memory types: `['preference', 'conversation', 'code', 'decision', 'pattern']`
+</ParamField>
+
+<ParamField path="limit" type="number" default={10}>
+  Maximum results to return
+</ParamField>
+
+<ParamField path="minImportance" type="number" default={0.3}>
+  Minimum importance (0-1)
+</ParamField>
+
+<ParamField path="includePersistent" type="boolean" default={true}>
+  Include persistent memories from other sessions
+</ParamField>
+
+<ParamField path="format" type="string" default="toon">
+  Output format: `json` or `toon`
+</ParamField>
+
+### Response
+
+<ResponseField name="memories" type="array">
+  Array of matching memories with content, type, score, and metadata
+</ResponseField>
+
+<ResponseField name="query" type="string">
+  Original search query
+</ResponseField>
+
+<ResponseField name="total" type="number">
+  Total number of memories found
+</ResponseField>
+
+### Example usage
+
+```typescript
+await th0th_recall({
+  query: "typescript preferences",
+  userId: "user_123",
+  projectId: "my-project",
+  types: ["preference", "decision"],
+  limit: 5,
+  format: "toon"
+});
+
+// Returns:
+// - Top 5 memories matching "typescript preferences"
+// - Filtered to preference and decision types
+// - TOON format (70% smaller than JSON)
+```
+
+---
+
+## th0th_compress
+
+Compress context using semantic compression strategies.
+
+<Note>
+Compression is rule-based and deterministic. It keeps structure while removing details, achieving 70-98% token reduction.
+</Note>
+
+### Parameters
+
+<ParamField path="content" type="string" required>
+  Content to compress
+</ParamField>
+
+<ParamField path="strategy" type="string" default="code_structure">
+  Compression strategy: `code_structure`, `conversation_summary`, `semantic_dedup`, or `hierarchical`
+</ParamField>
+
+<ParamField path="targetRatio" type="number" default={0.7}>
+  Target compression ratio (0-1, e.g., 0.7 = 70% reduction)
+</ParamField>
+
+<ParamField path="language" type="string">
+  Programming language (for code compression)
+</ParamField>
+
+### Response
+
+<ResponseField name="compressed" type="string">
+  Compressed content
+</ResponseField>
+
+<ResponseField name="originalLength" type="number">
+  Original content length in characters
+</ResponseField>
+
+<ResponseField name="compressedLength" type="number">
+  Compressed content length in characters
+</ResponseField>
+
+<ResponseField name="originalTokens" type="number">
+  Original token count
+</ResponseField>
+
+<ResponseField name="compressedTokens" type="number">
+  Compressed token count
+</ResponseField>
+
+<ResponseField name="tokensSaved" type="number">
+  Number of tokens saved
+</ResponseField>
+
+<ResponseField name="compressionRatio" type="number">
+  Actual compression ratio achieved
+</ResponseField>
+
+### Example usage
+
+<Tabs>
+  <Tab title="Code Structure">
+    ```typescript
+    await th0th_compress({
+      content: `
+        function processUser(user) {
+          if (!user.id) throw new Error('Invalid user');
+          const profile = user.profile || {};
+          return {
+            id: user.id,
+            name: profile.name,
+            email: profile.email
+          };
+        }
+      `,
+      strategy: "code_structure",
+      language: "javascript"
+    });
+
+    // Returns structure without implementation details:
+    // function processUser(user) { ... }
+    ```
+  </Tab>
+  <Tab title="Conversation Summary">
+    ```typescript
+    await th0th_compress({
+      content: "Long conversation thread with multiple messages...",
+      strategy: "conversation_summary",
+      targetRatio: 0.8
+    });
+
+    // Summarizes conversation, 80% reduction
+    ```
+  </Tab>
+  <Tab title="Semantic Dedup">
+    ```typescript
+    await th0th_compress({
+      content: "Text with repeated information...",
+      strategy: "semantic_dedup"
+    });
+
+    // Removes semantically duplicate content
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## th0th_optimized_context
+
+Retrieve and compress context with maximum token efficiency. Combines search + compression in one call.
+
+<Note>
+This is the most powerful tool for AI context management. It searches, compresses, and optimizes token usage automatically.
+</Note>
+
+### Parameters
+
+<ParamField path="query" type="string" required>
+  Search query to find relevant context
+</ParamField>
+
+<ParamField path="projectId" type="string" required>
+  Project ID for code context
+</ParamField>
+
+<ParamField path="projectPath" type="string">
+  Project path (for auto-reindex)
+</ParamField>
+
+<ParamField path="maxTokens" type="number" default={4000}>
+  Maximum tokens in returned context
+</ParamField>
+
+<ParamField path="maxResults" type="number" default={5}>
+  Maximum search results to include
+</ParamField>
+
+### Response
+
+<ResponseField name="context" type="string">
+  Optimized context (compressed and formatted)
+</ResponseField>
+
+<ResponseField name="sources" type="array">
+  Array of source files included
+</ResponseField>
+
+<ResponseField name="resultsCount" type="number">
+  Number of search results included
+</ResponseField>
+
+<ResponseField name="memoriesCount" type="number">
+  Number of memories included
+</ResponseField>
+
+<ResponseField name="tokensSaved" type="number">
+  Tokens saved by compression
+</ResponseField>
+
+<ResponseField name="compressionRatio" type="number">
+  Compression ratio achieved
+</ResponseField>
+
+### Example usage
+
+```typescript
+await th0th_optimized_context({
+  query: "authentication implementation",
+  projectId: "my-project",
+  maxTokens: 4000,
+  maxResults: 5
+});
+
+// Returns:
+// - Top 5 relevant files about authentication
+// - Compressed to fit within 4000 tokens
+// - Ready to use as AI context
+// - Metadata: sources, token savings, compression ratio
+```
+
+### Workflow
+
+1. **Search**: Semantic + keyword search for relevant code
+2. **Compress**: Apply code_structure compression
+3. **Optimize**: Fit results within maxTokens budget
+4. **Return**: Formatted context with metadata
+
+---
+
+## th0th_analytics
+
+Get usage patterns, cache performance, and search metrics.
+
+### Parameters
+
+<ParamField path="type" type="string" required>
+  Analytics type: `summary`, `project`, `query`, `cache`, or `recent`
+</ParamField>
+
+<ParamField path="projectId" type="string">
+  Project ID (required for `type='project'` or `type='cache'`)
+</ParamField>
+
+<ParamField path="query" type="string">
+  Search query (required for `type='query'`)
+</ParamField>
+
+<ParamField path="limit" type="number" default={10}>
+  Limit for results (default: 10 for most, 50 for recent)
+</ParamField>
+
+### Response
+
+Response varies by analytics type:
+
+<Tabs>
+  <Tab title="Summary">
+    ```json
+    {
+      "totalSearches": 1234,
+      "totalProjects": 5,
+      "cacheHitRate": 0.67,
+      "avgSearchTime": 45,
+      "topProjects": [...],
+      "topQueries": [...]
+    }
+    ```
+  </Tab>
+  <Tab title="Project">
+    ```json
+    {
+      "projectId": "my-project",
+      "totalSearches": 456,
+      "filesIndexed": 1234,
+      "lastIndexed": "2026-03-09T10:30:00Z",
+      "topQueries": [...]
+    }
+    ```
+  </Tab>
+  <Tab title="Cache">
+    ```json
+    {
+      "l1HitRate": 0.85,
+      "l2HitRate": 0.12,
+      "missRate": 0.03,
+      "totalQueries": 1000,
+      "avgHitTime": 2,
+      "avgMissTime": 45
+    }
+    ```
+  </Tab>
+  <Tab title="Recent">
+    ```json
+    {
+      "searches": [
+        {
+          "query": "authentication",
+          "projectId": "my-project",
+          "timestamp": "2026-03-09T10:30:00Z",
+          "cacheHit": true,
+          "duration": 3
+        },
+        ...
+      ]
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Example usage
+
+```typescript
+// Get overall summary
+await th0th_analytics({ type: "summary" });
+
+// Get project-specific stats
+await th0th_analytics({ 
+  type: "project",
+  projectId: "my-project",
+  limit: 10
+});
+
+// Get cache performance
+await th0th_analytics({ 
+  type: "cache",
+  projectId: "my-project"
+});
+
+// Get recent searches
+await th0th_analytics({ 
+  type: "recent",
+  limit: 50
+});
+```
+
+---
+
+## Response Formats
+
+### JSON format
+
+Standard JSON response:
+
+```json
+{
+  "success": true,
+  "data": { ... },
+  "metadata": { ... }
+}
+```
+
+### TOON format
+
+Tree Object Oriented Notation (70% smaller than JSON):
+
+```
+# Memory
+  id: mem_abc123
+  content: User prefers TypeScript
+  type: preference
+  importance: 0.8
+  tags:
+    - typescript
+    - preferences
+  createdAt: 2026-03-09T10:30:00Z
+```
+
+<Note>
+TOON format is more readable and uses significantly fewer tokens. Set `format: "toon"` in memory tools to enable it.
+</Note>
+
+---
+
+## Error handling
+
+All tools return a consistent error format:
+
+```json
+{
+  "success": false,
+  "error": "Error message here"
+}
+```
+
+Common errors:
+
+- **Project not indexed**: Run `th0th_index` first
+- **Invalid projectId**: Check that the project exists
+- **Missing required parameter**: Check tool schema
+- **API not reachable**: Ensure th0th API is running on port 3333
+
+---
+
+## Performance tips
+
+<CardGroup cols={2}>
+  <Card title="Use summary mode" icon="gauge">
+    Set `responseMode: "summary"` in `th0th_search` to save 70% tokens
+  </Card>
+  <Card title="Enable cache warmup" icon="fire">
+    Set `warmCache: true` in `th0th_index` for faster initial searches
+  </Card>
+  <Card title="Leverage optimized context" icon="rocket">
+    Use `th0th_optimized_context` instead of separate search + compress calls
+  </Card>
+  <Card title="Filter with glob patterns" icon="filter">
+    Use `include` and `exclude` patterns to narrow search scope
+  </Card>
+</CardGroup>
+
+---
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Overview" icon="plug" href="/api/mcp-overview">
+    Learn about MCP integration and setup
+  </Card>
+  <Card title="REST API" icon="code" href="/api/rest-overview">
+    Use th0th via HTTP instead of MCP
+  </Card>
+</CardGroup>

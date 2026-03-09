@@ -1,0 +1,268 @@
+---
+title: 'OpenCode Integration'
+description: 'Configure th0th for OpenCode - the recommended AI coding assistant'
+---
+
+<Note>
+OpenCode is the recommended way to use th0th with the best performance and user experience.
+</Note>
+
+## Overview
+
+th0th integrates with OpenCode in two ways:
+1. **MCP Server** - Via the published npm package (recommended)
+2. **OpenCode Plugin** - Native plugin integration
+3. **Development Mode** - Run from source for development
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install th0th">
+    Ensure th0th is installed and the API server is running:
+    ```bash
+    # Start the th0th API
+    cd th0th
+    bun run start:api
+    ```
+    Verify: `curl http://localhost:3333/health`
+  </Step>
+
+  <Step title="Install OpenCode">
+    If you haven't already, install OpenCode from [opencode.ai](https://opencode.ai)
+  </Step>
+</Steps>
+
+## Configuration
+
+### Method 1: MCP Package (Recommended)
+
+This method uses the published npm package `@th0th-ai/mcp-client`.
+
+<Steps>
+  <Step title="Open OpenCode configuration">
+    Edit your OpenCode configuration file:
+    ```bash
+    ~/.config/opencode/opencode.json
+    ```
+  </Step>
+
+  <Step title="Add th0th MCP server">
+    Add the following to your `mcpServers` section:
+    ```json opencode.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "type": "local",
+          "command": ["bunx", "@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          },
+          "enabled": true
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Restart OpenCode">
+    Restart OpenCode to load the MCP server.
+  </Step>
+</Steps>
+
+<Note>
+Use `npx` instead of `bunx` if you prefer npm:
+```json
+"command": ["npx", "@th0th-ai/mcp-client"]
+```
+</Note>
+
+### Method 2: OpenCode Plugin
+
+The native plugin provides deeper integration with OpenCode.
+
+```json opencode.json
+{
+  "plugin": ["@th0th-ai/opencode-plugin"]
+}
+```
+
+The plugin automatically:
+- Discovers the th0th API endpoint
+- Registers all th0th tools
+- Provides optimized context handling
+
+### Method 3: Development Mode
+
+For development and testing, run th0th directly from source:
+
+```json opencode.json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["bun", "run", "/path/to/th0th/apps/mcp-client/src/index.ts"],
+      "enabled": true
+    }
+  }
+}
+```
+
+<Warning>
+Replace `/path/to/th0th` with the actual path to your th0th installation.
+</Warning>
+
+## Available Tools
+
+Once configured, OpenCode will have access to these th0th tools:
+
+<CardGroup cols={2}>
+  <Card title="th0th_index" icon="database">
+    Index a project directory for semantic search
+  </Card>
+  <Card title="th0th_search" icon="magnifying-glass">
+    Semantic + keyword search with filters
+  </Card>
+  <Card title="th0th_remember" icon="brain">
+    Store important information in persistent memory
+  </Card>
+  <Card title="th0th_recall" icon="clock-rotate-left">
+    Search stored memories from previous sessions
+  </Card>
+  <Card title="th0th_compress" icon="compress">
+    Compress context (70-98% token reduction)
+  </Card>
+  <Card title="th0th_optimized_context" icon="gauge-high">
+    Search + compress in one call for max efficiency
+  </Card>
+  <Card title="th0th_analytics" icon="chart-line">
+    Usage patterns, cache performance, metrics
+  </Card>
+</CardGroup>
+
+## Verification
+
+<Steps>
+  <Step title="Test the connection">
+    In OpenCode, ask:
+    ```
+    List all th0th tools
+    ```
+    You should see all 7 th0th tools listed.
+  </Step>
+
+  <Step title="Test indexing">
+    Index your current project:
+    ```
+    Use th0th to index this project
+    ```
+  </Step>
+
+  <Step title="Test search">
+    Search for code:
+    ```
+    Search th0th for authentication code
+    ```
+  </Step>
+</Steps>
+
+## Configuration Options
+
+### API URL
+
+By default, th0th connects to `http://localhost:3333`. To use a different URL:
+
+<CodeGroup>
+```json MCP Server
+{
+  "mcpServers": {
+    "th0th": {
+      "env": {
+        "TH0TH_API_URL": "http://your-server:3333"
+      }
+    }
+  }
+}
+```
+
+```json Plugin
+{
+  "plugin": ["@th0th-ai/opencode-plugin"],
+  "pluginConfig": {
+    "@th0th-ai/opencode-plugin": {
+      "apiUrl": "http://your-server:3333"
+    }
+  }
+}
+```
+</CodeGroup>
+
+### Enable/Disable Server
+
+Toggle the MCP server without removing the configuration:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "enabled": false  // Set to true to re-enable
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Tools not showing up">
+    1. Check that the th0th API is running: `curl http://localhost:3333/health`
+    2. Restart OpenCode
+    3. Check OpenCode logs for MCP connection errors
+    4. Verify the configuration file path is correct
+  </Accordion>
+
+  <Accordion title="Connection refused">
+    Ensure the `TH0TH_API_URL` matches your running API server:
+    ```bash
+    # Check if API is running
+    curl http://localhost:3333/health
+    
+    # If not, start it
+    cd th0th && bun run start:api
+    ```
+  </Accordion>
+
+  <Accordion title="Command not found: bunx">
+    Install Bun or use npx instead:
+    ```bash
+    # Install Bun
+    curl -fsSL https://bun.sh/install | bash
+    
+    # Or use npx
+    "command": ["npx", "@th0th-ai/mcp-client"]
+    ```
+  </Accordion>
+
+  <Accordion title="Package not found">
+    The package may not be published yet. Use development mode:
+    ```json
+    "command": ["bun", "run", "/path/to/th0th/apps/mcp-client/src/index.ts"]
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+    Configure embedding providers and advanced settings
+  </Card>
+  <Card title="MCP Tools" icon="wrench" href="/api/tools-reference">
+    Learn about all available MCP tools
+  </Card>
+  <Card title="Docker Setup" icon="docker" href="/integration/docker">
+    Run th0th in Docker containers
+  </Card>
+  <Card title="Troubleshooting" icon="life-ring" href="/operations/troubleshooting">
+    Common issues and solutions
+  </Card>
+</CardGroup>

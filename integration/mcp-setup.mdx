@@ -1,0 +1,576 @@
+---
+title: 'MCP Server Setup'
+description: 'Configure th0th MCP server with different AI assistants and clients'
+---
+
+## Overview
+
+The Model Context Protocol (MCP) enables AI assistants to access external tools. th0th provides an MCP server that exposes semantic search, memory, and compression capabilities to any MCP-compatible client.
+
+## Supported Clients
+
+th0th MCP server works with:
+
+<CardGroup cols={2}>
+  <Card title="OpenCode" icon="code">
+    Recommended AI coding assistant with native MCP support
+  </Card>
+  <Card title="Claude Desktop" icon="message">
+    Anthropic's desktop app with MCP integration
+  </Card>
+  <Card title="VSCode" icon="window">
+    Via Copilot or Antigravity extensions
+  </Card>
+  <Card title="Custom Clients" icon="plug">
+    Any MCP-compatible client via stdio
+  </Card>
+</CardGroup>
+
+## Prerequisites
+
+<Steps>
+  <Step title="Install th0th">
+    ```bash
+    git clone <repo-url>
+    cd th0th
+    bun install
+    bun run build
+    ```
+  </Step>
+
+  <Step title="Setup and start API">
+    ```bash
+    # Run local-first setup (Ollama)
+    ./scripts/setup-local-first.sh
+    
+    # Start the API
+    bun run start:api
+    ```
+    Verify: `curl http://localhost:3333/health`
+  </Step>
+
+  <Step title="Install MCP package (optional)">
+    For production use, install the published package:
+    ```bash
+    # Via npm
+    npm install -g @th0th-ai/mcp-client
+    
+    # Via bun
+    bun add -g @th0th-ai/mcp-client
+    ```
+    For development, you can run directly from source.
+  </Step>
+</Steps>
+
+## Configuration by Client
+
+### OpenCode
+
+<Tabs>
+  <Tab title="Via Package">
+    Edit `~/.config/opencode/opencode.json`:
+    
+    ```json opencode.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "type": "local",
+          "command": ["bunx", "@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          },
+          "enabled": true
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Via Plugin">
+    ```json opencode.json
+    {
+      "plugin": ["@th0th-ai/opencode-plugin"]
+    }
+    ```
+  </Tab>
+  
+  <Tab title="From Source">
+    ```json opencode.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "type": "local",
+          "command": ["bun", "run", "/path/to/th0th/apps/mcp-client/src/index.ts"],
+          "enabled": true
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+See [OpenCode Integration](/integration/opencode) for detailed instructions.
+
+### Claude Desktop
+
+<Tabs>
+  <Tab title="macOS">
+    Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+    
+    ```json claude_desktop_config.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "command": "bunx",
+          "args": ["@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Windows">
+    Edit `%APPDATA%\Claude\claude_desktop_config.json`:
+    
+    ```json claude_desktop_config.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "command": "npx",
+          "args": ["@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Linux">
+    Edit `~/.config/Claude/claude_desktop_config.json`:
+    
+    ```json claude_desktop_config.json
+    {
+      "mcpServers": {
+        "th0th": {
+          "command": "bunx",
+          "args": ["@th0th-ai/mcp-client"],
+          "env": {
+            "TH0TH_API_URL": "http://localhost:3333"
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+Restart Claude Desktop after editing the config.
+
+### VSCode
+
+Create `.vscode/mcp.json` in your workspace:
+
+```json .vscode/mcp.json
+{
+  "servers": {
+    "th0th": {
+      "command": "bunx",
+      "args": ["@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      }
+    }
+  }
+}
+```
+
+Or use the automated setup:
+
+```bash
+./scripts/setup-vscode.sh
+```
+
+See [VSCode Integration](/integration/vscode) for detailed instructions.
+
+### Docker
+
+Use the MCP service from docker-compose:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "type": "local",
+      "command": ["docker", "compose", "run", "--rm", "-i", "mcp"],
+      "enabled": true
+    }
+  }
+}
+```
+
+<Note>
+Run from the th0th directory, or use `-f /path/to/docker-compose.yml` to specify the file location.
+</Note>
+
+See [Docker Integration](/integration/docker) for detailed instructions.
+
+## MCP Client CLI
+
+The MCP client includes a configuration CLI for managing settings.
+
+### Quick Config Commands
+
+```bash
+# Show current configuration
+npx @th0th-ai/mcp-client --config-show
+
+# Show config file path
+npx @th0th-ai/mcp-client --config-path
+
+# Show config directory
+npx @th0th-ai/mcp-client --config-dir
+
+# Initialize configuration
+npx @th0th-ai/mcp-client --config-init
+
+# Show help
+npx @th0th-ai/mcp-client --help
+```
+
+### Initialize with Specific Provider
+
+```bash
+# Ollama (default)
+npx @th0th-ai/mcp-client --config-init
+
+# Mistral
+npx @th0th-ai/mcp-client --config-init --mistral your-api-key
+
+# OpenAI
+npx @th0th-ai/mcp-client --config-init --openai your-api-key
+
+# Ollama with specific model
+npx @th0th-ai/mcp-client --config-init --ollama-model bge-m3
+```
+
+### Set Specific Values
+
+```bash
+# Set embedding dimensions
+npx @th0th-ai/mcp-client --config-set embedding.dimensions 1024
+
+# Set API timeout
+npx @th0th-ai/mcp-client --config-set api.timeout 30000
+```
+
+## Configuration File
+
+The MCP client stores configuration in `~/.config/th0th/config.json`:
+
+```json ~/.config/th0th/config.json
+{
+  "embedding": {
+    "provider": "ollama",
+    "model": "nomic-embed-text:latest",
+    "dimensions": 768,
+    "baseUrl": "http://localhost:11434"
+  },
+  "api": {
+    "url": "http://localhost:3333",
+    "timeout": 30000
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": 3600
+  }
+}
+```
+
+<Note>
+The config file is auto-created on first run with sensible defaults.
+</Note>
+
+## Environment Variables
+
+Override config values with environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|----------|
+| `TH0TH_API_URL` | th0th API endpoint | `http://localhost:3333` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
+| `OLLAMA_EMBEDDING_MODEL` | Embedding model | `nomic-embed-text:latest` |
+| `OLLAMA_EMBEDDING_DIMENSIONS` | Embedding dimensions | `768` |
+| `MISTRAL_API_KEY` | Mistral API key | - |
+| `OPENAI_API_KEY` | OpenAI API key | - |
+
+Example:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://192.168.1.100:3333",
+        "OLLAMA_BASE_URL": "http://192.168.1.100:11434",
+        "OLLAMA_EMBEDDING_MODEL": "bge-m3"
+      }
+    }
+  }
+}
+```
+
+## Testing the Connection
+
+### Manual Test
+
+Test the MCP server directly:
+
+```bash
+# List available tools
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
+  bunx @th0th-ai/mcp-client
+
+# Expected output: JSON with 7 th0th tools
+```
+
+### Via Client
+
+In your AI assistant, try:
+
+```
+List all available MCP tools
+```
+
+You should see:
+- `th0th_index`
+- `th0th_search`
+- `th0th_remember`
+- `th0th_recall`
+- `th0th_compress`
+- `th0th_optimized_context`
+- `th0th_analytics`
+
+## Available MCP Tools
+
+<AccordionGroup>
+  <Accordion title="th0th_index">
+    Index a project directory for semantic search.
+    
+    **Parameters:**
+    - `projectPath` (string) - Absolute path to project
+    - `projectId` (string, optional) - Unique identifier
+    
+    **Returns:** Indexing status and statistics
+  </Accordion>
+
+  <Accordion title="th0th_search">
+    Semantic + keyword search with filters.
+    
+    **Parameters:**
+    - `query` (string) - Search query
+    - `projectId` (string) - Target project
+    - `filters` (object, optional) - File patterns, etc.
+    - `limit` (number, optional) - Max results (default: 10)
+    
+    **Returns:** Ranked search results with snippets
+  </Accordion>
+
+  <Accordion title="th0th_remember">
+    Store important information in persistent memory.
+    
+    **Parameters:**
+    - `content` (string) - Information to remember
+    - `type` (string, optional) - decision, fact, note, etc.
+    - `tags` (array, optional) - Searchable tags
+    
+    **Returns:** Memory ID and timestamp
+  </Accordion>
+
+  <Accordion title="th0th_recall">
+    Search stored memories from previous sessions.
+    
+    **Parameters:**
+    - `query` (string) - What to recall
+    - `limit` (number, optional) - Max results
+    - `filters` (object, optional) - Type, date range, etc.
+    
+    **Returns:** Relevant memories with metadata
+  </Accordion>
+
+  <Accordion title="th0th_compress">
+    Compress context while preserving structure.
+    
+    **Parameters:**
+    - `content` (string) - Content to compress
+    - `strategy` (string, optional) - code_structure, summarize
+    - `targetReduction` (number, optional) - Desired % reduction
+    
+    **Returns:** Compressed content and stats
+  </Accordion>
+
+  <Accordion title="th0th_optimized_context">
+    Search + compress in one call for max efficiency.
+    
+    **Parameters:**
+    - `query` (string) - Search query
+    - `projectId` (string) - Target project
+    - `maxTokens` (number, optional) - Token budget
+    
+    **Returns:** Compressed search results ready for LLM
+  </Accordion>
+
+  <Accordion title="th0th_analytics">
+    View usage patterns and performance metrics.
+    
+    **Parameters:**
+    - `timeRange` (string, optional) - day, week, month
+    - `metrics` (array, optional) - Specific metrics to return
+    
+    **Returns:** Analytics data and insights
+  </Accordion>
+</AccordionGroup>
+
+See [MCP Tools Reference](/api/tools-reference) for detailed documentation.
+
+## Advanced Configuration
+
+### Multiple th0th Instances
+
+Connect to multiple th0th servers:
+
+```json
+{
+  "mcpServers": {
+    "th0th-local": {
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://localhost:3333"
+      }
+    },
+    "th0th-remote": {
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_URL": "http://remote-server:3333"
+      }
+    }
+  }
+}
+```
+
+### Custom Timeout
+
+Increase timeout for large projects:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "TH0TH_API_TIMEOUT": "60000"
+      }
+    }
+  }
+}
+```
+
+### Debug Mode
+
+Enable verbose logging:
+
+```json
+{
+  "mcpServers": {
+    "th0th": {
+      "command": ["bunx", "@th0th-ai/mcp-client"],
+      "env": {
+        "DEBUG": "th0th:*",
+        "LOG_LEVEL": "debug"
+      }
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server not starting">
+    Check the API is running:
+    ```bash
+    curl http://localhost:3333/health
+    ```
+    
+    If not:
+    ```bash
+    cd th0th
+    bun run start:api
+    ```
+  </Accordion>
+
+  <Accordion title="Tools not appearing">
+    Test the MCP client directly:
+    ```bash
+    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | \
+      bunx @th0th-ai/mcp-client
+    ```
+    
+    Common issues:
+    - Wrong `TH0TH_API_URL` in config
+    - API not running or not healthy
+    - Client not restarted after config change
+  </Accordion>
+
+  <Accordion title="Permission denied">
+    Ensure the MCP client is executable:
+    ```bash
+    # For global install
+    npm install -g @th0th-ai/mcp-client
+    
+    # Or use bunx/npx which handle permissions
+    bunx @th0th-ai/mcp-client --help
+    ```
+  </Accordion>
+
+  <Accordion title="Connection timeout">
+    The API may be slow to start or under heavy load:
+    1. Check API logs for errors
+    2. Increase timeout in config
+    3. Verify network connectivity
+    4. Check if Ollama is running (for embeddings)
+  </Accordion>
+
+  <Accordion title="Invalid JSON-RPC">
+    Ensure you're using the correct MCP protocol version:
+    ```bash
+    # Check MCP client version
+    bunx @th0th-ai/mcp-client --version
+    
+    # Update to latest
+    bunx @th0th-ai/mcp-client@latest --version
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="MCP Tools Reference" icon="book" href="/api/tools-reference">
+    Detailed documentation for all MCP tools
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/embedding-providers">
+    Configure embedding providers and models
+  </Card>
+  <Card title="OpenCode Integration" icon="code" href="/integration/opencode">
+    Optimize for OpenCode usage
+  </Card>
+  <Card title="VSCode Integration" icon="window" href="/integration/vscode">
+    Setup with VSCode Copilot
+  </Card>
+</CardGroup>
