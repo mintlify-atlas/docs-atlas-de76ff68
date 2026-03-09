@@ -93,6 +93,7 @@
   ],
   "publicApiSurface": [
     "th0th_index - Index a project directory for semantic search",
+    "th0th_index_status - Check background indexing job progress",
     "th0th_search - Semantic + keyword search with filters",
     "th0th_remember - Store important information in persistent memory",
     "th0th_recall - Search stored memories from previous sessions",

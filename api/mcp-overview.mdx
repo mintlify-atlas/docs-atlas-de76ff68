@@ -4,7 +4,7 @@ description: "Model Context Protocol integration for semantic code search"
 icon: "plug"
 ---
 
-th0th exposes 7 MCP tools for AI assistants like OpenCode, Claude Desktop, and VSCode extensions. These tools enable semantic code search, persistent memory, context compression, and analytics with 98% token reduction.
+th0th exposes 8 MCP tools for AI assistants like OpenCode, Claude Desktop, and VSCode extensions. These tools enable semantic code search, persistent memory, context compression, and analytics with 98% token reduction.
 
 ## What is MCP?
 
@@ -13,25 +13,28 @@ Model Context Protocol (MCP) is a standard protocol for connecting AI assistants
 ## Available Tools
 
 <CardGroup cols={2}>
-  <Card title="th0th_index" icon="folder-tree" href="#th0th_index">
+  <Card title="th0th_index" icon="folder-tree" href="/api/tools-reference#th0th_index">
     Index a project directory for semantic search
   </Card>
-  <Card title="th0th_search" icon="magnifying-glass" href="#th0th_search">
+  <Card title="th0th_index_status" icon="hourglass-half" href="/api/tools-reference#th0th_index_status">
+    Check background indexing job progress
+  </Card>
+  <Card title="th0th_search" icon="magnifying-glass" href="/api/tools-reference#th0th_search">
     Semantic + keyword search with filters
   </Card>
-  <Card title="th0th_remember" icon="brain" href="#th0th_remember">
+  <Card title="th0th_remember" icon="brain" href="/api/tools-reference#th0th_remember">
     Store information in persistent memory
   </Card>
-  <Card title="th0th_recall" icon="clock-rotate-left" href="#th0th_recall">
+  <Card title="th0th_recall" icon="clock-rotate-left" href="/api/tools-reference#th0th_recall">
     Search stored memories from previous sessions
   </Card>
-  <Card title="th0th_compress" icon="compress" href="#th0th_compress">
+  <Card title="th0th_compress" icon="compress" href="/api/tools-reference#th0th_compress">
     Compress context (keeps structure, removes details)
   </Card>
-  <Card title="th0th_optimized_context" icon="gauge-high" href="#th0th_optimized_context">
+  <Card title="th0th_optimized_context" icon="gauge-high" href="/api/tools-reference#th0th_optimized_context">
     Search + compress in one call (max token efficiency)
   </Card>
-  <Card title="th0th_analytics" icon="chart-line" href="#th0th_analytics">
+  <Card title="th0th_analytics" icon="chart-line" href="/api/tools-reference#th0th_analytics">
     Usage patterns, cache performance, metrics
   </Card>
 </CardGroup>
@@ -190,7 +193,7 @@ npx @th0th-ai/mcp-client --config-set embedding.dimensions 1024
 
 <CardGroup cols={2}>
   <Card title="Tools Reference" icon="book" href="/api/tools-reference">
-    Detailed documentation for all 7 MCP tools
+    Detailed documentation for all 8 MCP tools
   </Card>
   <Card title="REST API" icon="code" href="/api/rest-overview">
     HTTP API documentation

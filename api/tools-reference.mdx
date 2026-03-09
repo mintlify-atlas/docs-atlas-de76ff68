@@ -4,7 +4,7 @@ description: "Complete reference for all th0th MCP tools"
 icon: "book"
 ---
 
-Detailed documentation for all 7 MCP tools exposed by th0th. Each tool includes parameter schemas, usage examples, and response formats.
+Detailed documentation for all 8 MCP tools exposed by th0th. Each tool includes parameter schemas, usage examples, and response formats.
 
 ## th0th_index
 
@@ -74,7 +74,67 @@ await th0th_index({
 //   "projectId": "my-project",
 //   "projectPath": "/home/user/my-project",
 //   "status": "started",
-//   "message": "Indexing started in background. Use th0th_get_index_status(jobId) to check progress."
+//   "message": "Indexing started in background. Use th0th_index_status(jobId) to check progress."
+// }
+```
+
+---
+
+## th0th_index_status
+
+Get the status and progress of a background indexing job. Use this after calling `th0th_index` to check if indexing has completed.
+
+### Parameters
+
+<ParamField path="jobId" type="string" required>
+  Job ID returned from `th0th_index`
+</ParamField>
+
+### Response
+
+<ResponseField name="jobId" type="string">
+  Job ID being tracked
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current job status: `running`, `completed`, or `failed`
+</ResponseField>
+
+<ResponseField name="progress" type="object">
+  Progress information (files processed, completion percentage)
+</ResponseField>
+
+<ResponseField name="projectId" type="string">
+  Project identifier
+</ResponseField>
+
+<ResponseField name="error" type="string">
+  Error message if status is `failed`
+</ResponseField>
+
+### Example usage
+
+```typescript
+// After indexing starts
+const indexResult = await th0th_index({
+  projectPath: "/home/user/my-project"
+});
+
+// Check status
+const status = await th0th_index_status({
+  jobId: indexResult.jobId
+});
+
+// Response:
+// {
+//   "jobId": "job_abc123",
+//   "status": "completed",
+//   "progress": {
+//     "filesProcessed": 1543,
+//     "totalFiles": 1543,
+//     "percentComplete": 100
+//   },
+//   "projectId": "my-project"
 // }
 ```
 
